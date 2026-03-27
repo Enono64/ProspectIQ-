@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: #0a0a0f;
+    color: #e8e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0d0d14; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-card border border-bg-border rounded-lg;
+  }
+  .btn {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 cursor-pointer border;
+  }
+  .btn-primary {
+    @apply btn bg-orange text-white border-orange hover:bg-orange/90 active:scale-95;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-txt-secondary border-bg-border hover:bg-bg-card hover:text-txt-primary;
+  }
+  .btn-danger {
+    @apply btn bg-transparent text-red-light border-red-light/30 hover:bg-red-dim;
+  }
+  .input {
+    @apply w-full bg-bg-card border border-bg-border rounded-md px-3 py-2 text-sm text-txt-primary placeholder-txt-muted outline-none transition-colors focus:border-orange/50;
+  }
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+  .label {
+    @apply text-xs text-txt-muted uppercase tracking-widest mb-1.5 block;
+  }
+  .badge-top     { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-teal-dim text-teal-light border border-teal-border; }
+  .badge-prio    { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-dim text-green-light border border-green-light/20; }
+  .badge-watch   { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-dim text-amber-light border border-amber-light/20; }
+  .badge-veil    { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-dim text-purple-light border border-purple-border; }
+  .badge-out     { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-dim text-red-light border border-red-light/20; }
+  .stat-hi  { @apply font-mono text-txt-primary; }
+  .stat-ok  { @apply font-mono text-txt-secondary; }
+  .stat-neg { @apply font-mono text-red-light; }
+  .stat-pos { @apply font-mono text-teal-light; }
+}
