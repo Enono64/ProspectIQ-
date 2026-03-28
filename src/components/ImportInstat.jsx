@@ -1,22 +1,30 @@
 import { useState } from 'react'
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5'
 
-// Mapping colonnes InStat → schéma ProspectIQ
-function parseInstatExcel(arrayBuffer) {
+// Parser Excel sans librairie externe — utilise SheetJS via CDN
+async function loadXLSX() {
+  if (window.XLSX) return window.XLSX
+  await new Promise((res, rej) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+    s.onload = res
+    s.onerror = rej
+    document.head.appendChild(s)
+  })
+  return window.XLSX
+}
+
+function parseInstatExcel(XLSX, arrayBuffer) {
   const wb = XLSX.read(arrayBuffer, { type: 'array' })
   const ws = wb.Sheets[wb.SheetNames[0]]
   const raw = XLSX.utils.sheet_to_json(ws, { defval: null })
-
   if (!raw.length) throw new Error('Fichier vide')
 
-  // Remplacer '-' par null, convertir en nombre
   const toNum = (v) => {
     if (v === null || v === '-' || v === '') return null
     const n = parseFloat(String(v).replace('%', '').replace(',', '.'))
     return isNaN(n) ? null : n
   }
 
-  // Parser les minutes "MM:SS" → décimal
   const toMin = (v) => {
     if (!v) return null
     const parts = String(v).split(':')
@@ -24,7 +32,6 @@ function parseInstatExcel(arrayBuffer) {
     return Math.round((parseInt(parts[0]) + parseInt(parts[1]) / 60) * 10) / 10
   }
 
-  // Moyenne sur toutes les lignes (ignorer null)
   const avg = (key) => {
     const vals = raw.map(r => toNum(r[key])).filter(v => v !== null)
     if (!vals.length) return null
@@ -37,71 +44,150 @@ function parseInstatExcel(arrayBuffer) {
     return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
   }
 
-  const gp = raw.length
-
-  // FG% calculé depuis makes/attempts
+  const gp   = raw.length
   const fgm  = avg('Field goals made')
   const fga  = avg('Field goals attempted')
   const fg3m = avg('3-pt field goals made')
   const fg3a = avg('3-pt field goals attempted')
   const ftm  = avg('Free throws made')
   const fta  = avg('Free throws attempted')
+  const pts  = avg('Points')
 
-  const fg_pct  = (fgm && fga)  ? Math.round(fgm  / fga  * 1000) / 10 : null
-  const fg3_pct = (fg3m && fg3a && fg3a > 0) ? Math.round(fg3m / fg3a * 1000) / 10 : null
-  const ft_pct  = (ftm && fta)  ? Math.round(ftm  / fta  * 1000) / 10 : null
-
-  // TS% = PTS / (2 * (FGA + 0.44 * FTA))
-  const pts = avg('Points')
-  const ts_pct = (pts && fga && fta)
-    ? Math.round(pts / (2 * (fga + 0.44 * fta)) * 1000) / 10
-    : null
-
-  // eFG% = (FGM + 0.5 * FG3M) / FGA
-  const efg_pct = (fgm && fg3m !== null && fga)
-    ? Math.round((fgm + 0.5 * (fg3m || 0)) / fga * 1000) / 10
-    : null
+  const fg_pct  = fgm && fga  ? Math.round(fgm / fga * 1000) / 10 : null
+  const fg3_pct = fg3m != null && fg3a > 0 ? Math.round(fg3m / fg3a * 1000) / 10 : null
+  const ft_pct  = ftm && fta  ? Math.round(ftm / fta * 1000) / 10 : null
+  const ts_pct  = pts && fga && fta ? Math.round(pts / (2 * (fga + 0.44 * fta)) * 1000) / 10 : null
+  const efg_pct = fgm != null && fga ? Math.round((fgm + 0.5 * (fg3m || 0)) / fga * 1000) / 10 : null
 
   const stats = {
     // Stats de base
-    gp,
-    min:       avgMin(),
-    pts,
-    reb:       avg('Rebounds'),
-    ast:       avg('Assists'),
-    stl:       avg('Steals'),
-    blk:       avg('Blocks'),
-    tov:       avg('Turnovers'),
+    gp, min: avgMin(), pts,
+    reb:  avg('Rebounds'),
+    ast:  avg('Assists'),
+    stl:  avg('Steals'),
+    blk:  avg('Blocks'),
+    tov:  avg('Turnovers'),
     fgm, fga, fg_pct,
     fg3m, fg3a, fg3_pct,
     ftm, fta, ft_pct,
-    oreb_pct:  avg('Offensive rebounds'),
-    dreb_pct:  avg('Defensive rebounds'),
+    ts_pct, efg_pct,
     plus_minus: avg('Plus/Minus'),
 
     // Stats avancées
-    ortg:      avg('Offensive rating'),
-    drtg:      avg('Defensive rating'),
-    net_rtg:   avg('Net rating'),
-    usg_pct:   avg('Usage Percentage'),
-    ts_pct,
-    efg_pct,
+    ortg:    avg('Offensive rating'),
+    drtg:    avg('Defensive rating'),
+    net_rtg: avg('Net rating'),
+    usg_pct: avg('Usage Percentage'),
 
-    // Stats InStat exclusives
-    instat_pnr_handler: avg('PnR Handlers made'),
-    instat_isolation:   avg('Isolations made'),
-    instat_cuts:        avg('Cuts made'),
-    instat_drives:      avg('Drives made'),
-    instat_catch_shoot: avg('Catch and shoot made'),
-    instat_post_up:     avg('Posts up made'),
-    instat_screen_off:  avg('Screens off made'),
-    instat_deflections: avg('Deflections'),
-    instat_draw_foul:   avg('Draw foul rate'),
+    // Colonnes InStat exclusives
+    is_pts_per_poss:       avg("Points per player's possession"),
+    is_fg2m:               avg('2-pt field goals made'),
+    is_fg2a:               avg('2-pt field goals attempted'),
+    is_fouls:              avg('Fouls'),
+    is_fouls_drawn:        avg('Fouls drawn'),
+    is_screen_assist:      avg('Screen Assist'),
+    is_possessions:        avg("Number of player's possessions"),
+    is_pts_off_ast:        avg('Points off assists'),
+    is_pts_off_screen_ast: avg('Points off screen assists'),
+    is_deflections:        avg('Deflections'),
+    is_trans_made:         avg('Transitions made'),
+    is_trans_att:          avg('Transitions attempted'),
+    is_catch_shoot_made:   avg('Catch and shoot made'),
+    is_catch_shoot_att:    avg('Catch and shoot attempted'),
+    is_catch_drive_made:   avg('Catch and drive made'),
+    is_catch_drive_att:    avg('Catch and drive attempted'),
+    is_screen_off_made:    avg('Screens off made'),
+    is_screen_off_att:     avg('Screens off attempted'),
+    is_post_made:          avg('Posts up made'),
+    is_post_att:           avg('Posts up attempted'),
+    is_iso_made:           avg('Isolations made'),
+    is_iso_att:            avg('Isolations attempted'),
+    is_handoff_made:       avg('Hand off made'),
+    is_handoff_att:        avg('Hand off attempted'),
+    is_cuts_made:          avg('Cuts made'),
+    is_cuts_att:           avg('Cuts attempted'),
+    is_pnr_handler_made:   avg('PnR Handlers made'),
+    is_pnr_handler_att:    avg('PnR Handlers attempted'),
+    is_pnr_roller_made:    avg('PnR Rollers made'),
+    is_pnr_roller_att:     avg('PnR Rollers attempted'),
+    is_pnp_made:           avg('PnP made'),
+    is_pnp_att:            avg('PnP attempted'),
+    is_uncontested_made:   avg('Uncontested field goals made'),
+    is_uncontested_att:    avg('Uncontested field goals'),
+    is_contested_made:     avg('Contested field goals made'),
+    is_contested_att:      avg('Contested field goals'),
+    is_team_pts:           avg('Team points with player'),
+    is_opp_poss:           avg('Opponent possessions played'),
+    is_opp_pts:            avg("Opponent's points with player"),
+    is_ast_to:             avg('Assists to turnovers'),
+    is_stl_to:             avg('Steals to turnovers'),
+    is_draw_foul_rate:     avg('Draw foul rate'),
+    is_opp_trans_made:     avg('Opp Transition shots made'),
+    is_opp_trans_att:      avg('Opp Transition shots'),
+    is_opp_catch_shoot_made: avg('Opp catch and shoot shots made'),
+    is_opp_catch_shoot_att:  avg('Opp catch and shoot shots'),
+    is_opp_catch_drive_made: avg('Opp catch and drive shots made'),
+    is_opp_catch_drive_att:  avg('Opp Catch and drive shots'),
+    is_opp_screen_off_made:  avg('Opp Screens off shots made'),
+    is_opp_screen_off_att:   avg('Opp Screens off shots'),
+    is_opp_post_made:      avg('Opp Post up shots made'),
+    is_opp_post_att:       avg('Opp Post up shots'),
+    is_opp_iso_made:       avg('Opp Isolations shots made'),
+    is_opp_iso_att:        avg('Opp Isolations shots'),
+    is_opp_handoff_made:   avg('Opp Hand off shots made'),
+    is_opp_handoff_att:    avg('Opp Hand off shots'),
+    is_opp_cuts_made:      avg('Opp Cuts shots made'),
+    is_opp_cuts_att:       avg('Opp Cuts shots'),
+    is_opp_pnr_made:       avg('Opp Pick-n-roll shots made'),
+    is_opp_pnr_att:        avg('Opp Pick-n-roll shots'),
+    is_opp_pnp_made:       avg('Opp Pick-n-Pop shots made'),
+    is_opp_pnp_att:        avg('Opp Pick-n-Pop shots'),
+    is_drives_made:        avg('Drives made'),
+    is_drives_att:         avg('Drives with shot'),
+    is_drives_right_made:  avg('Right drives made'),
+    is_drives_right_att:   avg('Right drives'),
+    is_drives_left_made:   avg('Left drives made'),
+    is_drives_left_att:    avg('Left drives'),
+    is_opp_drives_made:    avg('Opp Drives shots made'),
+    is_opp_drives_att:     avg('Opp Drives shots'),
   }
 
-  // Nettoyer les null
   return Object.fromEntries(Object.entries(stats).filter(([, v]) => v !== null))
 }
+
+const BASE_STATS = [
+  ['gp','Matchs'],['min','Min'],['pts','PTS'],['reb','REB'],['ast','AST'],
+  ['stl','STL'],['blk','BLK'],['tov','TOV'],['fg_pct','FG%'],['fg3_pct','3P%'],
+  ['ft_pct','FT%'],['ts_pct','TS%'],['efg_pct','eFG%'],['usg_pct','USG%'],
+  ['ortg','ORTG'],['drtg','DRTG'],['net_rtg','Net'],['plus_minus','+/-'],
+]
+
+const INSTAT_GROUPS = [
+  { label: 'Offensif', color: 'text-orange', border: 'border-orange/20', bg: 'bg-orange-dim/20', keys: [
+    ['is_pts_per_poss','Pts/Poss'],['is_possessions','Poss'],['is_pts_off_ast','Pts off AST'],
+    ['is_pts_off_screen_ast','Pts off Screen'],['is_trans_made','Transition'],
+    ['is_catch_shoot_made','Catch&Shoot'],['is_catch_drive_made','Catch&Drive'],
+  ]},
+  { label: 'Création', color: 'text-purple-light', border: 'border-purple-border', bg: 'bg-purple-dim/20', keys: [
+    ['is_iso_made','Isolation'],['is_pnr_handler_made','PnR Handler'],
+    ['is_pnr_roller_made','PnR Roller'],['is_pnp_made','PnP'],
+    ['is_post_made','Post Up'],['is_handoff_made','Hand Off'],
+    ['is_cuts_made','Cuts'],['is_screen_off_made','Screen Off'],
+    ['is_drives_made','Drives'],['is_drives_right_made','Drive Droit'],
+    ['is_drives_left_made','Drive Gauche'],
+  ]},
+  { label: 'Défensif', color: 'text-teal-light', border: 'border-teal-border', bg: 'bg-teal-dim/20', keys: [
+    ['is_deflections','Déflexions'],['is_draw_foul_rate','Draw Foul'],
+    ['is_stl_to','STL/TO'],['is_ast_to','AST/TO'],
+    ['is_contested_made','Contestés mis'],['is_uncontested_made','Non-contestés'],
+    ['is_fouls','Fautes'],['is_fouls_drawn','Fautes subies'],
+  ]},
+  { label: 'Défense adverse', color: 'text-red-light', border: 'border-red-light/20', bg: 'bg-red-dim/20', keys: [
+    ['is_opp_trans_made','Opp Trans'],['is_opp_catch_shoot_made','Opp C&S'],
+    ['is_opp_iso_made','Opp Iso'],['is_opp_pnr_made','Opp PnR'],
+    ['is_opp_post_made','Opp Post'],['is_opp_drives_made','Opp Drives'],
+  ]},
+]
 
 export default function ImportInstat({ onImport, onClose }) {
   const [dragging, setDragging] = useState(false)
@@ -114,11 +200,12 @@ export default function ImportInstat({ onImport, onClose }) {
     setLoading(true)
     setError('')
     try {
+      const XLSX = await loadXLSX()
       const buffer = await file.arrayBuffer()
-      const stats = parseInstatExcel(buffer)
+      const stats = parseInstatExcel(XLSX, buffer)
       setPreview(stats)
     } catch (e) {
-      setError('Erreur de lecture : ' + e.message)
+      setError('Erreur : ' + e.message)
     }
     setLoading(false)
   }
@@ -126,33 +213,7 @@ export default function ImportInstat({ onImport, onClose }) {
   function handleDrop(e) {
     e.preventDefault()
     setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
-  }
-
-  function handleFile(e) {
-    const file = e.target.files[0]
-    if (file) processFile(file)
-  }
-
-  function handleImport() {
-    if (preview) {
-      onImport(preview)
-      onClose()
-    }
-  }
-
-  const KEY_STATS = ['gp', 'min', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov', 'fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct', 'efg_pct', 'usg_pct', 'ortg', 'drtg', 'net_rtg', 'plus_minus']
-  const INSTAT_STATS = ['instat_pnr_handler', 'instat_isolation', 'instat_cuts', 'instat_drives', 'instat_catch_shoot', 'instat_post_up', 'instat_deflections']
-  const LABELS = {
-    gp: 'Matchs', min: 'Min', pts: 'PTS', reb: 'REB', ast: 'AST',
-    stl: 'STL', blk: 'BLK', tov: 'TOV', fg_pct: 'FG%', fg3_pct: '3P%',
-    ft_pct: 'FT%', ts_pct: 'TS%', efg_pct: 'eFG%', usg_pct: 'USG%',
-    ortg: 'ORTG', drtg: 'DRTG', net_rtg: 'Net', plus_minus: '+/-',
-    instat_pnr_handler: 'PnR Handler', instat_isolation: 'Isolation',
-    instat_cuts: 'Cuts', instat_drives: 'Drives',
-    instat_catch_shoot: 'Catch & Shoot', instat_post_up: 'Post Up',
-    instat_deflections: 'Deflections',
+    processFile(e.dataTransfer.files[0])
   }
 
   return (
@@ -160,86 +221,70 @@ export default function ImportInstat({ onImport, onClose }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs text-blue-light uppercase tracking-widest">📊 Importer depuis InStat</div>
-          <div className="text-xs text-txt-muted mt-1">Exporte le fichier Excel depuis basketball.instatscout.com → Games</div>
+          <div className="text-xs text-txt-muted mt-1">Exporte depuis basketball.instatscout.com → Games → Excel</div>
         </div>
         <button onClick={onClose} className="text-txt-muted hover:text-txt-primary text-lg">✕</button>
       </div>
 
-      {/* Zone de drop */}
       {!preview && (
         <div
           onDragOver={e => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragging ? 'border-blue-light bg-blue-dim/20' : 'border-bg-border'
-          }`}
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragging ? 'border-blue-light bg-blue-dim/20' : 'border-bg-border'}`}
         >
-          <div className="text-2xl mb-2">📁</div>
+          <div className="text-3xl mb-3">📁</div>
           <p className="text-sm text-txt-secondary mb-3">Glisse le fichier Excel InStat ici</p>
-          <p className="text-xs text-txt-muted mb-4">ou</p>
           <label className="btn-ghost text-xs cursor-pointer">
             Sélectionner le fichier
-            <input type="file" accept=".xlsx,.xls" onChange={handleFile} className="hidden" />
+            <input type="file" accept=".xlsx,.xls" onChange={e => processFile(e.target.files[0])} className="hidden" />
           </label>
         </div>
       )}
 
-      {loading && (
-        <div className="text-center text-txt-muted text-sm animate-pulse py-4">
-          Analyse du fichier InStat...
-        </div>
-      )}
+      {loading && <div className="text-center text-txt-muted text-sm animate-pulse py-4">Analyse InStat en cours...</div>}
 
-      {error && (
-        <div className="text-red-light text-xs bg-red-dim border border-red-light/20 rounded-md px-3 py-2">
-          {error}
-        </div>
-      )}
+      {error && <div className="text-red-light text-xs bg-red-dim border border-red-light/20 rounded-md px-3 py-2">{error}</div>}
 
-      {/* Aperçu des stats */}
       {preview && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-teal-light uppercase tracking-widest">
-              ✅ {preview.gp} matchs analysés
-            </div>
-            <button
-              onClick={() => setPreview(null)}
-              className="text-xs text-txt-muted hover:text-txt-primary"
-            >
-              Changer de fichier
-            </button>
+            <div className="text-xs text-teal-light uppercase tracking-widest">✅ {preview.gp} matchs analysés</div>
+            <button onClick={() => setPreview(null)} className="text-xs text-txt-muted hover:text-txt-primary">Changer</button>
           </div>
 
           {/* Stats de base */}
           <div>
             <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-2">Stats moyennes</div>
-            <div className="grid grid-cols-6 gap-1.5">
-              {KEY_STATS.filter(k => preview[k] != null).map(k => (
+            <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
+              {BASE_STATS.filter(([k]) => preview[k] != null).map(([k, label]) => (
                 <div key={k} className="bg-bg-card border border-bg-border rounded p-2 text-center">
-                  <div className="text-[9px] text-txt-muted uppercase">{LABELS[k]}</div>
+                  <div className="text-[9px] text-txt-muted uppercase">{label}</div>
                   <div className="text-xs font-mono font-semibold text-txt-primary mt-0.5">{preview[k]}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Stats InStat exclusives */}
-          <div>
-            <div className="text-[10px] text-blue-light uppercase tracking-widest mb-2">Stats InStat exclusives</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {INSTAT_STATS.filter(k => preview[k] != null).map(k => (
-                <div key={k} className="bg-blue-dim/20 border border-blue-border rounded p-2 text-center">
-                  <div className="text-[9px] text-blue-light uppercase">{LABELS[k]}</div>
-                  <div className="text-xs font-mono font-semibold text-txt-primary mt-0.5">{preview[k]}</div>
-                </div>
-              ))}
+          {/* Groupes InStat */}
+          {INSTAT_GROUPS.map(group => (
+            <div key={group.label}>
+              <div className={`text-[10px] uppercase tracking-widest mb-2 ${group.color}`}>
+                Stats InStat — {group.label}
+              </div>
+              <div className={`grid grid-cols-4 sm:grid-cols-6 gap-1.5`}>
+                {group.keys.filter(([k]) => preview[k] != null).map(([k, label]) => (
+                  <div key={k} className={`rounded p-2 text-center border ${group.border} ${group.bg}`}>
+                    <div className={`text-[9px] uppercase ${group.color}`}>{label}</div>
+                    <div className="text-xs font-mono font-semibold text-txt-primary mt-0.5">{preview[k]}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
 
-          <button onClick={handleImport} className="btn-primary text-xs">
-            ✅ Importer ces stats dans la fiche
+          <button onClick={() => { onImport(preview); onClose() }} className="btn-primary text-xs">
+            ✅ Importer toutes les stats dans la fiche
           </button>
         </div>
       )}
