@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { getBadgeClass, gradeColor, fmt, fmtDate, LEAGUE_COLOR, STATUTS, LIGUES } from '../lib/utils'
 import RadarChart from '../components/RadarChart'
+import ImportInstat from '../components/ImportInstat'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
 
@@ -24,6 +25,15 @@ function ReportForm({ playerId, onSaved, onCancel }) {
     score_defense: 5, score_lecture: 5, score_mentalite: 5,
   })
   const [saving, setSaving] = useState(false)
+  async function handleInstatImport(stats) {
+    try {
+      await api.updatePlayer(id, stats)
+      await load()
+    } catch (e) {
+      alert('Erreur import InStat : ' + e.message)
+    }
+  }
+
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   async function handleSave() {
@@ -288,6 +298,7 @@ export default function PlayerDetail() {
   const [tab, setTab]             = useState('stats')
   const [saving, setSaving]       = useState(false)
   const [showReportForm, setShowReportForm] = useState(false)
+  const [showInstat, setShowInstat]         = useState(false)
   const [form, setForm]           = useState({})
 
   useEffect(() => { load() }, [id])
@@ -338,6 +349,15 @@ export default function PlayerDetail() {
     await load()
   }
 
+  async function handleInstatImport(stats) {
+    try {
+      await api.updatePlayer(id, stats)
+      await load()
+    } catch (e) {
+      alert('Erreur import InStat : ' + e.message)
+    }
+  }
+
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   if (loading) return <div className="p-10 text-txt-muted text-sm animate-pulse text-center">Chargement...</div>
@@ -380,6 +400,7 @@ export default function PlayerDetail() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => exportPDF(player, reports)} className="btn-ghost text-xs">📄 PDF</button>
+          <button onClick={() => setShowInstat(!showInstat)} className="btn-ghost text-xs border-blue-border text-blue-light">📊 InStat</button>
           <button onClick={handleSync} disabled={syncing} className="btn-ghost text-xs">{syncing ? '⟳ ...' : '⟳ Sync'}</button>
           <button onClick={handleAIReport} disabled={aiLoading} className="btn-primary text-xs">{aiLoading ? '🤖 ...' : '🤖 Rapport IA'}</button>
           <button onClick={handleDelete} className="btn-danger text-xs">Supprimer</button>
@@ -419,6 +440,13 @@ export default function PlayerDetail() {
             <StatBox label="Net"    value={player.net_rtg != null ? (player.net_rtg >= 0 ? '+' : '') + fmt(player.net_rtg) : '—'} color={player.net_rtg >= 0 ? 'text-teal-light' : 'text-red-light'} />
             <StatBox label="AST/TO" value={fmt(player.ast_to, 2)} />
           </div>
+          {showInstat && (
+            <ImportInstat
+              onImport={handleInstatImport}
+              onClose={() => setShowInstat(false)}
+            />
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <RadarChart player={player} />
             {(player.bref_url || player.eurobasket_url || player.highlight_url) && (
