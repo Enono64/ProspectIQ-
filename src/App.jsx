@@ -8,6 +8,7 @@ import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import PlayerNew from './pages/PlayerNew'
 import TeamProfiles from './pages/TeamProfiles'
+import Pipeline from './pages/Pipeline'
 import { Watchlist, Schedule, Compare } from './pages/WatchlistScheduleCompare'
 
 function PrivateRoute({ user, children }) {
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="schedule" element={<Schedule />} />
           <Route path="compare" element={<Compare />} />
           <Route path="profiles" element={<TeamProfiles />} />
+          <Route path="pipeline" element={<Pipeline />} />
         </Route>
       </Routes>
     </BrowserRouter>
