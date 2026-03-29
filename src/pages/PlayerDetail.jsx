@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { getBadgeClass, gradeColor, fmt, fmtDate, LEAGUE_COLOR, STATUTS, LIGUES } from '../lib/utils'
 import RadarChart from '../components/RadarChart'
 import StatsPanel from '../components/StatsPanel'
+import SeasonStats from '../components/SeasonStats'
 import ImportInstat from '../components/ImportInstat'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
@@ -26,6 +27,27 @@ function ReportForm({ playerId, onSaved, onCancel }) {
     score_defense: 5, score_lecture: 5, score_mentalite: 5,
   })
   const [saving, setSaving] = useState(false)
+  async function handleBarttorvik() {
+    setBartLoading(true)
+    try {
+      const res = await api.syncBarttorvik(id)
+      if (res.ok) { await load(); alert(\`✅ Barttorvik sync réussi — \${Object.keys(res.stats).length} stats mises à jour\`) }
+      else alert('Erreur Barttorvik : ' + res.error)
+    } catch (e) { alert('Erreur : ' + e.message) }
+    setBartLoading(false)
+  }
+
+  async function handleKenpom() {
+    if (!kenpomTeam) return alert('Entre le nom de l'équipe KenPom')
+    setKenpomLoading(true)
+    try {
+      const res = await api.syncKenpom(id, kenpomTeam)
+      if (res.ok) { await load(); setShowKenpomForm(false); alert('✅ KenPom sync réussi') }
+      else alert('Erreur KenPom : ' + res.error)
+    } catch (e) { alert('Erreur : ' + e.message) }
+    setKenpomLoading(false)
+  }
+
   async function handleInstatImport(stats) {
     try {
       await api.updatePlayer(id, stats)
@@ -300,6 +322,10 @@ export default function PlayerDetail() {
   const [saving, setSaving]       = useState(false)
   const [showReportForm, setShowReportForm] = useState(false)
   const [showInstat, setShowInstat]         = useState(false)
+  const [bartLoading, setBartLoading]       = useState(false)
+  const [kenpomLoading, setKenpomLoading]   = useState(false)
+  const [showKenpomForm, setShowKenpomForm] = useState(false)
+  const [kenpomTeam, setKenpomTeam]         = useState('')
   const [form, setForm]           = useState({})
 
   useEffect(() => { load() }, [id])
@@ -348,6 +374,27 @@ export default function PlayerDetail() {
     if (!confirm('Supprimer ce rapport ?')) return
     await api.deleteReport(rid)
     await load()
+  }
+
+  async function handleBarttorvik() {
+    setBartLoading(true)
+    try {
+      const res = await api.syncBarttorvik(id)
+      if (res.ok) { await load(); alert(\`✅ Barttorvik sync réussi — \${Object.keys(res.stats).length} stats mises à jour\`) }
+      else alert('Erreur Barttorvik : ' + res.error)
+    } catch (e) { alert('Erreur : ' + e.message) }
+    setBartLoading(false)
+  }
+
+  async function handleKenpom() {
+    if (!kenpomTeam) return alert('Entre le nom de l'équipe KenPom')
+    setKenpomLoading(true)
+    try {
+      const res = await api.syncKenpom(id, kenpomTeam)
+      if (res.ok) { await load(); setShowKenpomForm(false); alert('✅ KenPom sync réussi') }
+      else alert('Erreur KenPom : ' + res.error)
+    } catch (e) { alert('Erreur : ' + e.message) }
+    setKenpomLoading(false)
   }
 
   async function handleInstatImport(stats) {
@@ -402,6 +449,14 @@ export default function PlayerDetail() {
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => exportPDF(player, reports)} className="btn-ghost text-xs">📄 PDF</button>
           <button onClick={() => setShowInstat(!showInstat)} className="btn-ghost text-xs border-blue-border text-blue-light">📊 InStat</button>
+          {player.league?.includes('NCAA') || player.barttorvik_url ? (
+            <button onClick={handleBarttorvik} disabled={bartLoading} className="btn-ghost text-xs" style={{borderColor:'#ffaa0044',color:'#ffaa00'}}>
+              {bartLoading ? '⟳ Bart...' : '📈 Barttorvik'}
+            </button>
+          ) : null}
+          <button onClick={() => setShowKenpomForm(!showKenpomForm)} className="btn-ghost text-xs" style={{borderColor:'#4488ff44',color:'#4488ff'}}>
+            🏫 KenPom
+          </button>
           <button onClick={handleSync} disabled={syncing} className="btn-ghost text-xs">{syncing ? '⟳ ...' : '⟳ Sync'}</button>
           <button onClick={handleAIReport} disabled={aiLoading} className="btn-primary text-xs">{aiLoading ? '🤖 ...' : '🤖 Rapport IA'}</button>
           <button onClick={handleDelete} className="btn-danger text-xs">Supprimer</button>
@@ -441,6 +496,35 @@ export default function PlayerDetail() {
             <StatBox label="Net"    value={player.net_rtg != null ? (player.net_rtg >= 0 ? '+' : '') + fmt(player.net_rtg) : '—'} color={player.net_rtg >= 0 ? 'text-teal-light' : 'text-red-light'} />
             <StatBox label="AST/TO" value={fmt(player.ast_to, 2)} />
           </div>
+          {showKenpomForm && (
+            <div className="card p-4 flex flex-col gap-3" style={{borderColor:'#4488ff30',background:'#4488ff08'}}>
+              <div className="text-xs uppercase tracking-widest" style={{color:'#4488ff'}}>🏫 Sync KenPom</div>
+              <div className="flex gap-2">
+                <input
+                  value={kenpomTeam}
+                  onChange={e => setKenpomTeam(e.target.value)}
+                  className="input text-xs flex-1"
+                  placeholder="Nom équipe KenPom ex: George Washington"
+                />
+                <button onClick={handleKenpom} disabled={kenpomLoading} className="btn-primary text-xs">
+                  {kenpomLoading ? '⟳ ...' : 'Sync'}
+                </button>
+                <button onClick={() => setShowKenpomForm(false)} className="btn-ghost text-xs">✕</button>
+              </div>
+              <p className="text-[10px] text-txt-muted">Récupère AdjOE, AdjDE, Tempo, Luck de l'équipe du joueur sur kenpom.com</p>
+              {(player.kenpom_adjoe || player.kenpom_adjde) && (
+                <div className="grid grid-cols-4 gap-2 mt-1">
+                  {[['AdjOE', player.kenpom_adjoe],['AdjDE', player.kenpom_adjde],['Tempo', player.kenpom_tempo],['Luck', player.kenpom_luck]].map(([l,v]) => v != null && (
+                    <div key={l} className="bg-bg-card border border-bg-border rounded-lg p-2 text-center">
+                      <div className="text-[9px] text-txt-muted uppercase">{l}</div>
+                      <div className="mono text-sm font-semibold text-txt-primary">{v}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {showInstat && (
             <ImportInstat
               onImport={handleInstatImport}
@@ -536,6 +620,13 @@ export default function PlayerDetail() {
               {r.recommendation && <div className="mt-2 pt-2 border-t border-bg-border"><span className="text-xs font-medium text-orange">{r.recommendation}</span></div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Saisons */}
+      {tab === 'seasons' && (
+        <div className="card p-4">
+          <SeasonStats playerId={id} />
         </div>
       )}
 
