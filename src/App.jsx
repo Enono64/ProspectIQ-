@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import PlayerNew from './pages/PlayerNew'
+import TeamProfiles from './pages/TeamProfiles'
 import { Watchlist, Schedule, Compare } from './pages/WatchlistScheduleCompare'
 
 function PrivateRoute({ user, children }) {
@@ -31,7 +32,7 @@ export default function App() {
 
   if (loading) return (
     <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="text-orange font-semibold tracking-widest text-sm animate-pulse">SCOUTDEX</div>
+      <div className="text-acc font-bold tracking-widest text-sm animate-pulse">PROSPECTIQ</div>
     </div>
   )
 
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="watchlist" element={<Watchlist />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="compare" element={<Compare />} />
+          <Route path="profiles" element={<TeamProfiles />} />
         </Route>
       </Routes>
     </BrowserRouter>
