@@ -50,6 +50,17 @@ export const api = {
   addWatchlist:  (id, note)    => request('POST', `/watchlist/${id}`, { note }),
   removeWatchlist:(id)         => request('DELETE', `/watchlist/${id}`),
 
+  // Saisons multi-ligues
+  getSeasons:    (id)           => request('GET', `/players/${id}/seasons`),
+  createSeason:  (id, body)     => request('POST', `/players/${id}/seasons`, body),
+  updateSeason:  (sid, body)    => request('PATCH', `/seasons/${sid}`, body),
+  deleteSeason:  (sid)          => request('DELETE', `/seasons/${sid}`),
+
+  // Barttorvik & KenPom
+  syncBarttorvik: (id)              => request('POST', `/players/${id}/sync-barttorvik`),
+  syncKenpom:     (id, team, u, p)  => request('POST', `/players/${id}/sync-kenpom`, { team, kenpom_user: u, kenpom_pass: p }),
+  searchBarttorvik:(name, team)     => request('GET', `/barttorvik/search?name=${encodeURIComponent(name)}${team ? '&team=' + encodeURIComponent(team) : ''}`),
+
   // Dashboard & admin
   getDashboard:  ()            => request('GET', '/dashboard'),
   getSchedule:   (params = {}) => request('GET', '/schedule?' + new URLSearchParams(params)),
