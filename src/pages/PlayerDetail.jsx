@@ -33,7 +33,7 @@ function ReportForm({ playerId, onSaved, onCancel }) {
     setBartLoading(true)
     try {
       const res = await api.syncBarttorvik(id)
-      if (res.ok) { await load(); alert(\`✅ Barttorvik sync réussi — \${Object.keys(res.stats).length} stats mises à jour\`) }
+      if (res.ok) { await load(); alert('✅ Barttorvik sync réussi — ' + Object.keys(res.stats || {}).length + ' stats mises à jour') }
       else alert('Erreur Barttorvik : ' + res.error)
     } catch (e) { alert('Erreur : ' + e.message) }
     setBartLoading(false)
@@ -382,7 +382,7 @@ export default function PlayerDetail() {
     setBartLoading(true)
     try {
       const res = await api.syncBarttorvik(id)
-      if (res.ok) { await load(); alert(\`✅ Barttorvik sync réussi — \${Object.keys(res.stats).length} stats mises à jour\`) }
+      if (res.ok) { await load(); alert('✅ Barttorvik sync réussi — ' + Object.keys(res.stats || {}).length + ' stats mises à jour') }
       else alert('Erreur Barttorvik : ' + res.error)
     } catch (e) { alert('Erreur : ' + e.message) }
     setBartLoading(false)
