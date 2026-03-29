@@ -5,6 +5,8 @@ import { getBadgeClass, gradeColor, fmt, fmtDate, LEAGUE_COLOR, STATUTS, LIGUES 
 import RadarChart from '../components/RadarChart'
 import StatsPanel from '../components/StatsPanel'
 import SeasonStats from '../components/SeasonStats'
+import TagsManager from '../components/TagsManager'
+import ContractTracker from '../components/ContractTracker'
 import ImportInstat from '../components/ImportInstat'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
@@ -627,6 +629,19 @@ export default function PlayerDetail() {
       {tab === 'seasons' && (
         <div className="card p-4">
           <SeasonStats playerId={id} />
+        </div>
+      )}
+
+      {/* Contrat & Agent */}
+      {tab === 'contract' && (
+        <ContractTracker player={player} onUpdate={p => { setPlayer(p); setForm(p) }} />
+      )}
+
+      {/* Tags */}
+      {tab === 'tags' && (
+        <div className="card p-4">
+          <div className="section-label mb-4">🏷️ Tags & étiquettes</div>
+          <TagsManager player={player} onUpdate={p => { setPlayer(p); setForm(p) }} />
         </div>
       )}
 
