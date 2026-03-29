@@ -50,6 +50,20 @@ export const api = {
   addWatchlist:  (id, note)    => request('POST', `/watchlist/${id}`, { note }),
   removeWatchlist:(id)         => request('DELETE', `/watchlist/${id}`),
 
+  // InStat Storage
+  uploadInstatFile: async (playerId, file) => {
+    const { supabase } = await import('./api')
+    const path = `${playerId}/${Date.now()}_${file.name}`
+    const { error } = await supabase.storage.from('instat-files').upload(path, file, { upsert: true })
+    if (error) throw new Error(error.message)
+    return path
+  },
+  getInstatFileUrl: async (path) => {
+    const { supabase } = await import('./api')
+    const { data } = await supabase.storage.from('instat-files').createSignedUrl(path, 3600)
+    return data?.signedUrl
+  },
+
   // Saisons multi-ligues
   getSeasons:    (id)           => request('GET', `/players/${id}/seasons`),
   createSeason:  (id, body)     => request('POST', `/players/${id}/seasons`, body),
