@@ -39,17 +39,6 @@ function ReportForm({ playerId, onSaved, onCancel }) {
     setBartLoading(false)
   }
 
-  async function handleKenpom() {
-    if (!kenpomTeam) return alert('Entre le nom de l'équipe KenPom')
-    setKenpomLoading(true)
-    try {
-      const res = await api.syncKenpom(id, kenpomTeam)
-      if (res.ok) { await load(); setShowKenpomForm(false); alert('✅ KenPom sync réussi') }
-      else alert('Erreur KenPom : ' + res.error)
-    } catch (e) { alert('Erreur : ' + e.message) }
-    setKenpomLoading(false)
-  }
-
   async function handleInstatImport(stats) {
     try {
       await api.updatePlayer(id, stats)
@@ -386,17 +375,6 @@ export default function PlayerDetail() {
       else alert('Erreur Barttorvik : ' + res.error)
     } catch (e) { alert('Erreur : ' + e.message) }
     setBartLoading(false)
-  }
-
-  async function handleKenpom() {
-    if (!kenpomTeam) return alert('Entre le nom de l'équipe KenPom')
-    setKenpomLoading(true)
-    try {
-      const res = await api.syncKenpom(id, kenpomTeam)
-      if (res.ok) { await load(); setShowKenpomForm(false); alert('✅ KenPom sync réussi') }
-      else alert('Erreur KenPom : ' + res.error)
-    } catch (e) { alert('Erreur : ' + e.message) }
-    setKenpomLoading(false)
   }
 
   async function handleInstatImport(stats) {
