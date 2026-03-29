@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { getBadgeClass, gradeColor, fmt, fmtDate, LEAGUE_COLOR, STATUTS, LIGUES } from '../lib/utils'
 import RadarChart from '../components/RadarChart'
+import StatsPanel from '../components/StatsPanel'
 import ImportInstat from '../components/ImportInstat'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
@@ -447,7 +448,9 @@ export default function PlayerDetail() {
             />
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+          <StatsPanel player={player} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <RadarChart player={player} />
             {(player.bref_url || player.eurobasket_url || player.highlight_url) && (
               <div className="card p-4">
