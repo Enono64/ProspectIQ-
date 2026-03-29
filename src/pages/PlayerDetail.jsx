@@ -29,25 +29,6 @@ function ReportForm({ playerId, onSaved, onCancel }) {
     score_defense: 5, score_lecture: 5, score_mentalite: 5,
   })
   const [saving, setSaving] = useState(false)
-  async function handleBarttorvik() {
-    setBartLoading(true)
-    try {
-      const res = await api.syncBarttorvik(id)
-      if (res.ok) { await load(); alert('✅ Barttorvik sync réussi — ' + Object.keys(res.stats || {}).length + ' stats mises à jour') }
-      else alert('Erreur Barttorvik : ' + res.error)
-    } catch (e) { alert('Erreur : ' + e.message) }
-    setBartLoading(false)
-  }
-
-  async function handleInstatImport(stats) {
-    try {
-      await api.updatePlayer(id, stats)
-      await load()
-    } catch (e) {
-      alert('Erreur import InStat : ' + e.message)
-    }
-  }
-
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   async function handleSave() {
