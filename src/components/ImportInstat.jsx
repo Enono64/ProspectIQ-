@@ -1,13 +1,11 @@
 import { useState } from 'react'
 
-// Parser Excel sans librairie externe — utilise SheetJS via CDN
 async function loadXLSX() {
   if (window.XLSX) return window.XLSX
   await new Promise((res, rej) => {
     const s = document.createElement('script')
     s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
-    s.onload = res
-    s.onerror = rej
+    s.onload = res; s.onerror = rej
     document.head.appendChild(s)
   })
   return window.XLSX
@@ -19,6 +17,7 @@ function parseInstatExcel(XLSX, arrayBuffer) {
   const raw = XLSX.utils.sheet_to_json(ws, { defval: null })
   if (!raw.length) throw new Error('Fichier vide')
 
+  // Parser une valeur — gère "55.3%", "55.3", "-", null
   const toNum = (v) => {
     if (v === null || v === '-' || v === '') return null
     const n = parseFloat(String(v).replace('%', '').replace(',', '.'))
@@ -32,6 +31,7 @@ function parseInstatExcel(XLSX, arrayBuffer) {
     return Math.round((parseInt(parts[0]) + parseInt(parts[1]) / 60) * 10) / 10
   }
 
+  // Moyenne sur toutes les lignes valides
   const avg = (key) => {
     const vals = raw.map(r => toNum(r[key])).filter(v => v !== null)
     if (!vals.length) return null
@@ -44,7 +44,9 @@ function parseInstatExcel(XLSX, arrayBuffer) {
     return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
   }
 
-  const gp   = raw.length
+  const gp = raw.length
+
+  // Stats de base
   const fgm  = avg('Field goals made')
   const fga  = avg('Field goals attempted')
   const fg3m = avg('3-pt field goals made')
@@ -53,11 +55,13 @@ function parseInstatExcel(XLSX, arrayBuffer) {
   const fta  = avg('Free throws attempted')
   const pts  = avg('Points')
 
-  const fg_pct  = fgm && fga  ? Math.round(fgm / fga * 1000) / 10 : null
-  const fg3_pct = fg3m != null && fg3a > 0 ? Math.round(fg3m / fg3a * 1000) / 10 : null
-  const ft_pct  = ftm && fta  ? Math.round(ftm / fta * 1000) / 10 : null
-  const ts_pct  = pts && fga && fta ? Math.round(pts / (2 * (fga + 0.44 * fta)) * 1000) / 10 : null
-  const efg_pct = fgm != null && fga ? Math.round((fgm + 0.5 * (fg3m || 0)) / fga * 1000) / 10 : null
+  // Utiliser directement les % InStat (ils incluent le signe % → toNum le supprime)
+  const fg_pct  = avg('Field goals, %')
+  const fg3_pct = avg('3-pt field goals, %')
+  const ft_pct  = avg('Free throws, %')
+  const usg_pct = avg('Usage Percentage')
+  const efg_pct = avg('Effective field goal percentage')
+  const ts_pct  = avg('True shooting percentage')
 
   const stats = {
     // Stats de base
@@ -70,16 +74,17 @@ function parseInstatExcel(XLSX, arrayBuffer) {
     fgm, fga, fg_pct,
     fg3m, fg3a, fg3_pct,
     ftm, fta, ft_pct,
-    ts_pct, efg_pct,
     plus_minus: avg('Plus/Minus'),
 
-    // Stats avancées
+    // Stats avancées directement depuis InStat
     ortg:    avg('Offensive rating'),
     drtg:    avg('Defensive rating'),
     net_rtg: avg('Net rating'),
-    usg_pct: avg('Usage Percentage'),
+    usg_pct,
+    ts_pct,
+    efg_pct,
 
-    // Colonnes InStat exclusives
+    // Stats InStat exclusives
     is_pts_per_poss:       avg("Points per player's possession"),
     is_fg2m:               avg('2-pt field goals made'),
     is_fg2a:               avg('2-pt field goals attempted'),
@@ -163,12 +168,13 @@ const BASE_STATS = [
 ]
 
 const INSTAT_GROUPS = [
-  { label: 'Offensif', color: 'text-orange', border: 'border-orange/20', bg: 'bg-orange-dim/20', keys: [
+  { label: 'Offensif', color: 'text-acc', border: 'border-acc/20', bg: 'bg-acc/5', keys: [
     ['is_pts_per_poss','Pts/Poss'],['is_possessions','Poss'],['is_pts_off_ast','Pts off AST'],
     ['is_pts_off_screen_ast','Pts off Screen'],['is_trans_made','Transition'],
     ['is_catch_shoot_made','Catch&Shoot'],['is_catch_drive_made','Catch&Drive'],
+    ['is_deflections','Déflexions'],['is_draw_foul_rate','Draw Foul'],
   ]},
-  { label: 'Création', color: 'text-purple-light', border: 'border-purple-border', bg: 'bg-purple-dim/20', keys: [
+  { label: 'Création', color: 'text-purple', border: 'border-purple/20', bg: 'bg-purple/5', keys: [
     ['is_iso_made','Isolation'],['is_pnr_handler_made','PnR Handler'],
     ['is_pnr_roller_made','PnR Roller'],['is_pnp_made','PnP'],
     ['is_post_made','Post Up'],['is_handoff_made','Hand Off'],
@@ -176,13 +182,12 @@ const INSTAT_GROUPS = [
     ['is_drives_made','Drives'],['is_drives_right_made','Drive Droit'],
     ['is_drives_left_made','Drive Gauche'],
   ]},
-  { label: 'Défensif', color: 'text-teal-light', border: 'border-teal-border', bg: 'bg-teal-dim/20', keys: [
-    ['is_deflections','Déflexions'],['is_draw_foul_rate','Draw Foul'],
-    ['is_stl_to','STL/TO'],['is_ast_to','AST/TO'],
-    ['is_contested_made','Contestés mis'],['is_uncontested_made','Non-contestés'],
-    ['is_fouls','Fautes'],['is_fouls_drawn','Fautes subies'],
+  { label: 'Tirs', color: 'text-teal', border: 'border-teal/20', bg: 'bg-teal/5', keys: [
+    ['is_uncontested_made','Non contestés'],['is_contested_made','Contestés'],
+    ['is_fouls_drawn','Fautes subies'],['is_fouls','Fautes commises'],
+    ['is_ast_to','AST/TO'],['is_stl_to','STL/TO'],
   ]},
-  { label: 'Défense adverse', color: 'text-red-light', border: 'border-red-light/20', bg: 'bg-red-dim/20', keys: [
+  { label: 'Défense adverse', color: 'text-red', border: 'border-red/20', bg: 'bg-red/5', keys: [
     ['is_opp_trans_made','Opp Trans'],['is_opp_catch_shoot_made','Opp C&S'],
     ['is_opp_iso_made','Opp Iso'],['is_opp_pnr_made','Opp PnR'],
     ['is_opp_post_made','Opp Post'],['is_opp_drives_made','Opp Drives'],
@@ -197,30 +202,25 @@ export default function ImportInstat({ onImport, onClose }) {
 
   async function processFile(file) {
     if (!file) return
-    setLoading(true)
-    setError('')
+    setLoading(true); setError('')
     try {
       const XLSX = await loadXLSX()
-      const buffer = await file.arrayBuffer()
-      const stats = parseInstatExcel(XLSX, buffer)
-      setPreview(stats)
-    } catch (e) {
-      setError('Erreur : ' + e.message)
-    }
+      const stats = parseInstatExcel(XLSX, await file.arrayBuffer())
+      setPreview({ stats, file })
+    } catch (e) { setError('Erreur : ' + e.message) }
     setLoading(false)
   }
 
   function handleDrop(e) {
-    e.preventDefault()
-    setDragging(false)
+    e.preventDefault(); setDragging(false)
     processFile(e.dataTransfer.files[0])
   }
 
   return (
-    <div className="card p-5 border-blue-border bg-blue-dim/10 flex flex-col gap-4">
+    <div className="card p-5 flex flex-col gap-4" style={{ borderColor: '#4488ff30', background: '#4488ff05' }}>
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs text-blue-light uppercase tracking-widest">📊 Importer depuis InStat</div>
+          <div className="text-xs text-blue uppercase tracking-widest">📊 Importer depuis InStat / Hudl</div>
           <div className="text-xs text-txt-muted mt-1">Exporte depuis basketball.instatscout.com → Games → Excel</div>
         </div>
         <button onClick={onClose} className="text-txt-muted hover:text-txt-primary text-lg">✕</button>
@@ -231,7 +231,7 @@ export default function ImportInstat({ onImport, onClose }) {
           onDragOver={e => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragging ? 'border-blue-light bg-blue-dim/20' : 'border-bg-border'}`}
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragging ? 'border-blue bg-blue/5' : 'border-bg-border'}`}
         >
           <div className="text-3xl mb-3">📁</div>
           <p className="text-sm text-txt-secondary mb-3">Glisse le fichier Excel InStat ici</p>
@@ -242,14 +242,13 @@ export default function ImportInstat({ onImport, onClose }) {
         </div>
       )}
 
-      {loading && <div className="text-center text-txt-muted text-sm animate-pulse py-4">Analyse InStat en cours...</div>}
-
-      {error && <div className="text-red-light text-xs bg-red-dim border border-red-light/20 rounded-md px-3 py-2">{error}</div>}
+      {loading && <div className="text-center text-txt-muted text-sm animate-pulse py-4">Analyse InStat...</div>}
+      {error && <div className="text-red text-xs bg-red/5 border border-red/20 rounded-md px-3 py-2">{error}</div>}
 
       {preview && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-teal-light uppercase tracking-widest">✅ {preview.gp} matchs analysés</div>
+            <div className="text-xs text-teal uppercase tracking-widest">✅ {preview.stats?.gp} matchs analysés · 📁 {preview.file?.name}</div>
             <button onClick={() => setPreview(null)} className="text-xs text-txt-muted hover:text-txt-primary">Changer</button>
           </div>
 
@@ -257,34 +256,38 @@ export default function ImportInstat({ onImport, onClose }) {
           <div>
             <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-2">Stats moyennes</div>
             <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
-              {BASE_STATS.filter(([k]) => preview[k] != null).map(([k, label]) => (
+              {BASE_STATS.filter(([k]) => preview.stats?.[k] != null).map(([k, label]) => (
                 <div key={k} className="bg-bg-card border border-bg-border rounded p-2 text-center">
                   <div className="text-[9px] text-txt-muted uppercase">{label}</div>
-                  <div className="text-xs font-mono font-semibold text-txt-primary mt-0.5">{preview[k]}</div>
+                  <div className="text-xs mono font-semibold text-txt-primary mt-0.5">{preview.stats?.[k]}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Groupes InStat */}
-          {INSTAT_GROUPS.map(group => (
-            <div key={group.label}>
-              <div className={`text-[10px] uppercase tracking-widest mb-2 ${group.color}`}>
-                Stats InStat — {group.label}
+          {INSTAT_GROUPS.map(group => {
+            const available = group.keys.filter(([k]) => preview.stats?.[k] != null)
+            if (!available.length) return null
+            return (
+              <div key={group.label}>
+                <div className={`text-[10px] uppercase tracking-widest mb-2 ${group.color}`}>
+                  Stats InStat — {group.label}
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                  {available.map(([k, label]) => (
+                    <div key={k} className={`rounded p-2 text-center border ${group.border} ${group.bg}`}>
+                      <div className={`text-[9px] uppercase ${group.color}`}>{label}</div>
+                      <div className="text-xs mono font-semibold text-txt-primary mt-0.5">{preview.stats?.[k]}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className={`grid grid-cols-4 sm:grid-cols-6 gap-1.5`}>
-                {group.keys.filter(([k]) => preview[k] != null).map(([k, label]) => (
-                  <div key={k} className={`rounded p-2 text-center border ${group.border} ${group.bg}`}>
-                    <div className={`text-[9px] uppercase ${group.color}`}>{label}</div>
-                    <div className="text-xs font-mono font-semibold text-txt-primary mt-0.5">{preview[k]}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
-          <button onClick={() => { onImport(preview); onClose() }} className="btn-primary text-xs">
-            ✅ Importer toutes les stats dans la fiche
+          <button onClick={() => { onImport(preview.stats, preview.file); onClose() }} className="btn-primary text-xs">
+            ✅ Importer dans la fiche
           </button>
         </div>
       )}
