@@ -7,6 +7,7 @@ const NAV = [
   { to: '/watchlist',icon: '★', label: 'Watchlist' },
   { to: '/schedule', icon: '◈', label: 'Calendrier' },
   { to: '/pipeline', icon: '⊟', label: 'Pipeline' },
+  { to: '/veille',   icon: '📡', label: 'Veille' },
   { to: '/profiles', icon: '🏢', label: 'Profils équipe' },
   { to: '/compare',  icon: '⇄', label: 'Comparer' },
 ]
