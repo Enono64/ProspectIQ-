@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { LEAGUE_COLOR } from '../lib/utils'
 
-const LEAGUES = ['BBL (GER)', 'Pro A (GER)', 'Pro B', 'Liga ACB (ESP)', 'Lega A (ITA)', 'BSL (TUR)', 'NCAA']
+const LEAGUES = ['BBL (GER)', 'Pro A (GER)', 'Betclic Elite', 'Pro B', 'Liga ACB (ESP)', 'Lega A (ITA)', 'BSL (TUR)', 'EuroLeague', 'BCL', 'NCAA']
 
 export default function Veille() {
   const [loading, setLoading]   = useState(false)
@@ -33,7 +33,7 @@ export default function Veille() {
         leagues: selectedLeagues.join(',')
       })
       const data = await fetch(
-        import.meta.env.VITE_API_URL + '/veille?' + params,
+        import.meta.env.VITE_API_URL + '/synergy/veille?' + params,
         { headers: { Authorization: 'Bearer ' + (await getToken()) } }
       ).then(r => r.json())
       if (!data.ok) throw new Error(data.error)
@@ -67,10 +67,13 @@ export default function Veille() {
       const { supabase } = await import('../lib/api')
       const { data } = await supabase.auth.getSession()
       const token = data.session?.access_token || ''
-      const resp = await fetch(import.meta.env.VITE_API_URL + '/veille/test', {
+      const resp = await fetch(import.meta.env.VITE_API_URL + '/synergy/test', {
         headers: { Authorization: 'Bearer ' + token }
       }).then(r => r.json())
-      alert(resp.ok ? '✅ API-Sports connectée !' : '❌ ' + resp.error)
+      const lines = Object.entries(resp).map(([league, r]) =>
+        (r.ok ? '✅' : '❌') + ' ' + league + ' (' + r.slug + ')' + (r.error ? ' — ' + r.error : '')
+      ).join('\n')
+      alert('Synergy — Ligues disponibles :\n\n' + lines)
     } catch (e) { alert('❌ ' + e.message) }
   }
 
