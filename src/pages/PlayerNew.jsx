@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { STATUTS, POSTES, LIGUES } from '../lib/utils'
+import PlayerAutocomplete from '../components/PlayerAutocomplete'
 
 const EMPTY = {
   first_name:'', last_name:'', nationality:'', age:'', height_cm:'', weight_kg:'',
@@ -95,6 +96,8 @@ export default function PlayerNew() {
           </p>
         )}
       </div>
+
+      <PlayerAutocomplete onSelect={data => setForm(f => ({ ...f, ...data }))} />
 
       <form onSubmit={handleSave} className="flex flex-col gap-5">
 
