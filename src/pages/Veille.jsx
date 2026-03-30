@@ -6,9 +6,11 @@ import { LEAGUE_COLOR } from '../lib/utils'
 const LEAGUES = ['BBL (GER)', 'Pro A (GER)', 'Betclic Elite', 'Pro B', 'Liga ACB (ESP)', 'Lega A (ITA)', 'BSL (TUR)', 'EuroLeague', 'BCL', 'NCAA']
 
 export default function Veille() {
-  const [loading, setLoading]   = useState(false)
-  const [result, setResult]     = useState(null)
-  const [error, setError]       = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [result, setResult]         = useState(null)
+  const [error, setError]           = useState('')
+  const [discovering, setDiscovering] = useState(false)
+  const [discovered, setDiscovered]   = useState(null)
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
     d.setDate(d.getDate() - 2)
@@ -62,6 +64,20 @@ export default function Veille() {
     }
   }
 
+  async function handleDiscover() {
+    setDiscovering(true); setDiscovered(null)
+    try {
+      const { supabase } = await import('../lib/api')
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token || ''
+      const resp = await fetch(import.meta.env.VITE_API_URL + '/synergy/discover', {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r => r.json())
+      setDiscovered(resp)
+    } catch (e) { alert('❌ ' + e.message) }
+    setDiscovering(false)
+  }
+
   async function handleTestAPI() {
     try {
       const { supabase } = await import('../lib/api')
@@ -84,9 +100,14 @@ export default function Veille() {
           <div className="text-sm font-bold tracking-wider text-txt-primary">Veille hebdomadaire</div>
           <div className="text-[10px] text-txt-muted">Meilleures performances du week-end · Agent IA</div>
         </div>
-        <button onClick={handleTestAPI} className="ml-auto btn-ghost text-xs py-1">
-          🔌 Tester API
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button onClick={handleDiscover} disabled={discovering} className="btn-ghost text-xs py-1">
+            {discovering ? '🔍...' : '🔍 Mes ligues'}
+          </button>
+          <button onClick={handleTestAPI} className="btn-ghost text-xs py-1">
+            🔌 Test
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 max-w-4xl">
@@ -124,6 +145,24 @@ export default function Veille() {
         </div>
 
         {error && <div className="text-red text-xs bg-red/5 border border-red/20 rounded-lg p-3">{error}</div>}
+
+        {discovered && (
+          <div className="card p-4 border-teal/20 bg-teal/5">
+            <div className="text-[10px] text-teal uppercase tracking-widest mb-3">
+              🏀 Ligues disponibles dans ton trial Synergy — {discovered.working?.length || 0} trouvées
+            </div>
+            {discovered.working?.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {discovered.working.map(slug => (
+                  <span key={slug} className="text-[10px] px-2 py-1 rounded bg-teal/15 text-teal border border-teal/30 mono">{slug}</span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-txt-muted">Aucun slug valide trouvé — vérifie ta clé SYNERGY_API_KEY dans Railway</div>
+            )}
+            <div className="text-[10px] text-txt-muted">{discovered.total_tested} slugs testés</div>
+          </div>
+        )}
 
         {loading && (
           <div className="card p-8 text-center">
