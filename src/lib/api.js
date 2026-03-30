@@ -70,6 +70,9 @@ export const api = {
   updateSeason:  (sid, body)    => request('PATCH', `/seasons/${sid}`, body),
   deleteSeason:  (sid)          => request('DELETE', `/seasons/${sid}`),
 
+  // Autocomplete joueurs
+  searchPlayers: (q) => request('GET', '/players/search?q=' + encodeURIComponent(q)),
+
   // Barttorvik & KenPom
   syncBarttorvik: (id)              => request('POST', `/players/${id}/sync-barttorvik`),
   syncKenpom:     (id, team, u, p)  => request('POST', `/players/${id}/sync-kenpom`, { team, kenpom_user: u, kenpom_pass: p }),
