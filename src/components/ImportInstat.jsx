@@ -31,11 +31,27 @@ function parseInstatExcel(XLSX, arrayBuffer) {
     return Math.round((parseInt(parts[0]) + parseInt(parts[1]) / 60) * 10) / 10
   }
 
-  // Moyenne sur toutes les lignes valides
+  // La dernière ligne du fichier InStat est toujours "Average per game"
+  // On l'utilise directement pour les stats de base et les %
+  const avgRow = raw[raw.length - 1]
+  
+  // Pour les stats comptables (pts, reb...) : utiliser la ligne Average directement
   const avg = (key) => {
-    const vals = raw.map(r => toNum(r[key])).filter(v => v !== null)
+    // Essayer d'abord la ligne Average (dernière ligne)
+    const avgVal = toNum(avgRow?.[key])
+    if (avgVal !== null) return avgVal
+    // Fallback : moyenne manuelle
+    const vals = raw.slice(0, -1).map(r => toNum(r[key])).filter(v => v !== null)
     if (!vals.length) return null
     return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+  }
+  
+  // Pour les % : calculer made/attempted sur toute la saison (plus précis)
+  const avgPct = (madeKey, attKey) => {
+    const made = raw.slice(0, -1).reduce((s, r) => s + (toNum(r[madeKey]) || 0), 0)
+    const att  = raw.slice(0, -1).reduce((s, r) => s + (toNum(r[attKey])  || 0), 0)
+    if (!att) return null
+    return Math.round(made / att * 1000) / 10
   }
 
   const avgMin = () => {
@@ -55,10 +71,10 @@ function parseInstatExcel(XLSX, arrayBuffer) {
   const fta  = avg('Free throws attempted')
   const pts  = avg('Points')
 
-  // Utiliser directement les % InStat (ils incluent le signe % → toNum le supprime)
-  const fg_pct  = avg('Field goals, %')
-  const fg3_pct = avg('3-pt field goals, %')
-  const ft_pct  = avg('Free throws, %')
+  // Calculer les % sur la saison entière (made/attempted) — plus précis que la moyenne des %
+  const fg_pct  = avgPct('Field goals made',       'Field goals attempted')
+  const fg3_pct = avgPct('3-pt field goals made',  '3-pt field goals attempted')
+  const ft_pct  = avgPct('Free throws made',        'Free throws attempted')
   const usg_pct = avg('Usage Percentage')
   const efg_pct = avg('Effective field goal percentage')
   const ts_pct  = avg('True shooting percentage')
