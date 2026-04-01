@@ -131,9 +131,30 @@ export default function StatsPanel({ player }) {
         <div className="card-sm p-4">
           <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-3">Efficacité</div>
           <PercentileBar value={p.ts_pct}  stat="ts_pct"  position={pos} league={p.league} label="TS%" highlight />
-          <PercentileBar value={p.fg_pct}  stat="fg_pct"  position={pos} league={p.league} label="FG%" />
-          <PercentileBar value={p.fg3_pct} stat="fg3_pct" position={pos} league={p.league} label="3P%" />
-          <PercentileBar value={p.ft_pct}  stat="ft_pct"  position={pos} league={p.league} label="FT%" />
+          {/* FG% avec made/attempted */}
+          <div className="flex items-center justify-between py-1.5 border-b border-bg-border/30">
+            <span className="text-[10px] text-txt-muted uppercase tracking-wider">FG%</span>
+            <div className="flex items-center gap-2">
+              {p.fgm != null && p.fga != null && <span className="text-[10px] text-txt-muted mono">{p.fgm}/{p.fga}</span>}
+              <span className="mono text-sm font-semibold text-txt-secondary">{p.fg_pct != null ? p.fg_pct + '%' : '—'}</span>
+            </div>
+          </div>
+          {/* 3P% avec made/attempted */}
+          <div className="flex items-center justify-between py-1.5 border-b border-bg-border/30">
+            <span className="text-[10px] text-txt-muted uppercase tracking-wider">3P%</span>
+            <div className="flex items-center gap-2">
+              {p.fg3m != null && p.fg3a != null && <span className="text-[10px] text-txt-muted mono">{p.fg3m}/{p.fg3a}</span>}
+              <span className={`mono text-sm font-semibold ${p.fg3_pct == null ? 'text-txt-muted' : p.fg3_pct >= 37 ? 'text-teal' : p.fg3_pct < 30 ? 'text-red' : 'text-txt-secondary'}`}>{p.fg3_pct != null ? p.fg3_pct + '%' : '—'}</span>
+            </div>
+          </div>
+          {/* FT% avec made/attempted */}
+          <div className="flex items-center justify-between py-1.5 border-b border-bg-border/30">
+            <span className="text-[10px] text-txt-muted uppercase tracking-wider">FT%</span>
+            <div className="flex items-center gap-2">
+              {p.ftm != null && p.fta != null && <span className="text-[10px] text-txt-muted mono">{p.ftm}/{p.fta}</span>}
+              <span className="mono text-sm font-semibold text-txt-secondary">{p.ft_pct != null ? p.ft_pct + '%' : '—'}</span>
+            </div>
+          </div>
           <PercentileBar value={p.usg_pct} stat="usg_pct" position={pos} league={p.league} label="USG%" />
         </div>
 
