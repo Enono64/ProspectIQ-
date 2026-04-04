@@ -69,40 +69,88 @@ export function Watchlist() {
 }
 
 export function Schedule() {
-  const [games, setGames] = useState([])
+  const [games, setGames]     = useState([])
   const [loading, setLoading] = useState(true)
+  const [from, setFrom]       = useState(new Date().toISOString().split('T')[0])
+  const [to, setTo]           = useState(new Date(Date.now() + 14*86400000).toISOString().split('T')[0])
 
-  useEffect(() => {
-    api.getSchedule().then(setGames).finally(() => setLoading(false))
-  }, [])
+  function load() {
+    setLoading(true)
+    const params = new URLSearchParams({ from, to })
+    api.request('GET', '/schedule?' + params).then(setGames).catch(console.error).finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
+
+  const byDate = games.reduce((acc, g) => {
+    const d = g.schedule?.game_date || 'unknown'
+    if (!acc[d]) acc[d] = []
+    acc[d].push(g)
+    return acc
+  }, {})
 
   return (
-    <div className="p-5 flex flex-col gap-4">
-      <div>
-        <h1 className="text-base font-semibold text-txt-primary">Calendrier</h1>
-        <p className="text-xs text-txt-muted">Matchs des 7 prochains jours</p>
-      </div>
-      {loading ? (
-        <div className="text-txt-muted text-sm animate-pulse p-10 text-center">Chargement...</div>
-      ) : games.length === 0 ? (
-        <div className="card p-10 text-center text-txt-muted text-sm">Aucun match à venir</div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {games.map(g => (
-            <div key={g.schedule?.id} className="card p-3 flex items-center gap-4">
-              <div className="text-xs text-txt-muted w-20">{new Date(g.schedule?.game_date).toLocaleDateString('fr-FR')}</div>
-              <div className="font-medium text-sm text-txt-primary">
-                <Link to={`/players/${g.players?.id}`} className="hover:text-orange">{g.players?.first_name} {g.players?.last_name}</Link>
-              </div>
-              <div className="text-xs text-txt-muted">{g.schedule?.team_name} vs {g.schedule?.opponent}</div>
-              <div className="text-xs ml-auto" style={{ color: LEAGUE_COLOR[g.players?.league] || '#888' }}>{g.players?.league}</div>
-            </div>
-          ))}
+    <div className="flex flex-col h-full">
+      <div className="h-[50px] bg-bg-surface border-b border-bg-border flex items-center px-5 gap-4 flex-shrink-0">
+        <div className="text-sm font-bold tracking-wider text-txt-primary">Calendrier</div>
+        <div className="flex items-center gap-2 ml-auto">
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input text-xs py-1 w-32" />
+          <span className="text-txt-muted text-xs">→</span>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input text-xs py-1 w-32" />
+          <button onClick={load} disabled={loading} className="btn-primary text-xs py-1 px-3">
+            {loading ? '...' : 'Actualiser'}
+          </button>
         </div>
-      )}
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 max-w-3xl">
+        {loading ? (
+          <div className="text-txt-muted text-sm animate-pulse p-10 text-center">Chargement des matchs...</div>
+        ) : games.length === 0 ? (
+          <div className="card p-8 text-center">
+            <div className="text-2xl mb-2">📅</div>
+            <div className="text-sm text-txt-secondary">Aucun match trouvé</div>
+            <div className="text-xs text-txt-muted mt-1">Vérifie que tes joueurs ont une équipe et une ligue renseignées</div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b)).map(([date, dayGames]) => (
+              <div key={date}>
+                <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-2 mono">
+                  {new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {dayGames.map((g, i) => (
+                    <div key={i} className="card p-3 flex items-center gap-4">
+                      <div className="w-12 text-[10px] text-txt-muted mono text-center">{g.schedule?.time || '—'}</div>
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold text-txt-primary">
+                          {g.player?.first_name} {g.player?.last_name}
+                          <span className="ml-2 text-[9px] text-txt-muted font-normal">{g.player?.league}</span>
+                        </div>
+                        <div className="text-[11px] text-txt-secondary mt-0.5">
+                          {g.schedule?.home_away === 'home' ? '🏠' : '✈️'} {g.schedule?.team_name} vs {g.schedule?.opponent}
+                        </div>
+                      </div>
+                      {g.schedule?.home_score != null ? (
+                        <div className="text-sm font-bold mono text-txt-primary">{g.schedule?.home_score} — {g.schedule?.away_score}</div>
+                      ) : (
+                        <div className="text-[10px] text-teal font-semibold">À venir</div>
+                      )}
+                      <div className="w-6 h-6 rounded-full bg-acc/10 flex items-center justify-center text-[10px] font-bold text-acc">
+                        {g.player?.scout_grade}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
+
 
 export function Compare() {
   const [allPlayers, setAllPlayers] = useState([])
