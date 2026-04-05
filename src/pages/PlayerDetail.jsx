@@ -9,6 +9,7 @@ import TagsManager from '../components/TagsManager'
 import ContractTracker from '../components/ContractTracker'
 import ImportInstat from '../components/ImportInstat'
 import FitAnalysis from '../components/FitAnalysis'
+import GPTAnalysis from '../components/GPTAnalysis'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
 
@@ -219,7 +220,7 @@ export default function PlayerDetail() {
     } catch (e) { alert('❌ ' + e.message) }
   }
 
-  async function handleInstatImport(stats) {
+  async function handleInstatImport(stats, file) {
     try {
       await api.updatePlayer(id, stats)
       await load()
@@ -291,7 +292,7 @@ export default function PlayerDetail() {
         {/* Tabs */}
         <div className="flex gap-0 mt-3 -mb-3 overflow-x-auto">
           {[
-            ['stats','Statistiques'],['fit','🎯 Fit'],['scout','Scout'],
+            ['stats','Statistiques'],['fit','🎯 Fit'],['gpt','🧠 GPT'],['scout','Scout'],
             ['reports',`Rapports (${reports.length})`],['seasons','Saisons'],
             ['contract','Contrat'],['tags','Tags'],['edit','Modifier'],
           ].map(([key, label]) => (
@@ -318,6 +319,9 @@ export default function PlayerDetail() {
 
         {/* ── Tab Fit Analysis ── */}
         {tab === 'fit' && <FitAnalysis player={player} />}
+
+        {/* ── Tab GPT Analysis ── */}
+        {tab === 'gpt' && <GPTAnalysis player={player} />}
 
         {/* ── Tab Scout ── */}
         {tab === 'scout' && (
