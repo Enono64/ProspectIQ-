@@ -6,6 +6,9 @@ import { LEAGUE_COLOR } from '../lib/utils'
 const LEAGUES = ['BBL (GER)', 'Pro A (GER)', 'Betclic Elite', 'Pro B', 'Liga ACB (ESP)', 'Lega A (ITA)', 'BSL (TUR)', 'EuroLeague', 'BCL', 'NCAA']
 
 export default function Veille() {
+  const [gptMode, setGptMode]   = useState(false)
+  const [gptResult, setGptResult] = useState('')
+  const [gptLoading, setGptLoading] = useState(false)
   const [loading, setLoading]       = useState(false)
   const [result, setResult]         = useState(null)
   const [error, setError]           = useState('')
@@ -64,6 +67,24 @@ export default function Veille() {
     }
   }
 
+  async function handleGPTVeille() {
+    setGptLoading(true); setGptResult('')
+    try {
+      const { supabase } = await import('../lib/api')
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token || ''
+      const resp = await fetch(import.meta.env.VITE_API_URL + '/gpt-veille', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ leagues: selectedLeagues.join(', '), dateFrom, dateTo })
+      })
+      const d = await resp.json()
+      if (d.ok) setGptResult(d.analysis)
+      else throw new Error(d.error)
+    } catch(e) { alert('❌ ' + e.message) }
+    setGptLoading(false)
+  }
+
   async function handleDiscover() {
     setDiscovering(true); setDiscovered(null)
     try {
@@ -101,6 +122,10 @@ export default function Veille() {
           <div className="text-[10px] text-txt-muted">Meilleures performances du week-end · Agent IA</div>
         </div>
         <div className="ml-auto flex gap-2">
+          <button onClick={handleGPTVeille} disabled={gptLoading}
+            className={`text-xs py-1 px-3 rounded-lg border font-semibold transition-all ${gptMode ? 'bg-acc/10 border-acc/40 text-acc' : 'btn-ghost'}`}>
+            {gptLoading ? '🧠...' : '🧠 Veille GPT'}
+          </button>
           <button onClick={handleDiscover} disabled={discovering} className="btn-ghost text-xs py-1">
             {discovering ? '🔍...' : '🔍 Mes ligues'}
           </button>
@@ -145,6 +170,21 @@ export default function Veille() {
         </div>
 
         {error && <div className="text-red text-xs bg-red/5 border border-red/20 rounded-lg p-3">{error}</div>}
+
+        {gptResult && (
+          <div className="card p-4 border-acc/20">
+            <div className="text-[10px] text-acc uppercase tracking-widest mb-3 font-bold">🧠 Veille Top 10 Scout — GPT-4o</div>
+            <div className="flex flex-col gap-0.5">
+              {gptResult.split('\n').map((line, i) => {
+                const clean = line.trim()
+                if (!clean) return <div key={i} className="h-1.5" />
+                if (clean.startsWith('##')) return <div key={i} className="text-[10px] text-acc font-bold uppercase tracking-wider mt-3 mb-1">{clean.replace(/^#+\s*/, '')}</div>
+                if (clean.startsWith('-') || clean.startsWith('•')) return <p key={i} className="text-xs text-txt-secondary leading-relaxed pl-3">{clean}</p>
+                return <p key={i} className="text-xs text-txt-secondary leading-relaxed">{clean}</p>
+              })}
+            </div>
+          </div>
+        )}
 
         {discovered && (
           <div className="card p-4 border-teal/20 bg-teal/5">
