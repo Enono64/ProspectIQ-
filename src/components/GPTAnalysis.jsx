@@ -49,11 +49,38 @@ export default function GPTAnalysis({ player }) {
   const [mode, setMode]         = useState('auto')
   const [error, setError]       = useState('')
   const [usedMode, setUsedMode] = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
 
   const hasStats = player.pts || player.ast || player.reb || player.fg_pct
 
+  async function saveAnalysis() {
+    if (!analysis) return
+    setSaving(true)
+    try {
+      const { supabase } = await import('../lib/api')
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token || ''
+      const modeLabel = MODES.find(m => m.id === usedMode)?.label || 'GPT'
+      await fetch(import.meta.env.VITE_API_URL + '/players/' + player.id + '/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          source: 'GPT-4o · ' + modeLabel,
+          report_date: new Date().toISOString().split('T')[0],
+          global_grade: player.scout_grade || 5,
+          ai_report: analysis,
+          observation: analysis,
+        })
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch(e) { alert('Erreur sauvegarde : ' + e.message) }
+    setSaving(false)
+  }
+
   async function runAnalysis() {
-    setLoading(true); setError(''); setAnalysis(null)
+    setLoading(true); setError(''); setAnalysis(null); setSaved(false)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token || ''
@@ -129,12 +156,20 @@ export default function GPTAnalysis({ player }) {
 
       {analysis && (
         <div className="card p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-[10px] px-2 py-1 rounded border font-semibold uppercase tracking-wider"
-              style={{ borderColor: MODE_COLORS[usedMode] + '50', background: MODE_COLORS[usedMode] + '15', color: MODE_COLORS[usedMode] }}>
-              {currentMode?.icon} {currentMode?.label}
-            </span>
-            <span className="text-[10px] text-txt-muted">GPT-4o · {player.league}</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] px-2 py-1 rounded border font-semibold uppercase tracking-wider"
+                style={{ borderColor: MODE_COLORS[usedMode] + '50', background: MODE_COLORS[usedMode] + '15', color: MODE_COLORS[usedMode] }}>
+                {currentMode?.icon} {currentMode?.label}
+              </span>
+              <span className="text-[10px] text-txt-muted">GPT-4o · {player.league}</span>
+            </div>
+            <button onClick={saveAnalysis} disabled={saving || saved}
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                saved ? 'border-teal/40 bg-teal/10 text-teal' : 'border-bg-border text-txt-muted hover:border-acc/30 hover:text-acc'
+              }`}>
+              {saved ? '✅ Sauvegardé !' : saving ? '...' : '💾 Sauvegarder'}
+            </button>
           </div>
 
           <div className="flex flex-col gap-0.5">
