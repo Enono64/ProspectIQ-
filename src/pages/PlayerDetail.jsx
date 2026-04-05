@@ -132,8 +132,9 @@ function ReportForm({ playerId, onSaved, onCancel }) {
 
 async function exportPDF(player) {
   try {
-    const { getToken } = await import('../lib/api')
-    const token = await getToken()
+    const { supabase } = await import('../lib/api')
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token || ''
     const resp = await fetch(
       import.meta.env.VITE_API_URL + '/players/' + player.id + '/pdf',
       { headers: { Authorization: 'Bearer ' + token } }
