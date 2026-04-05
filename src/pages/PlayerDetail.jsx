@@ -8,6 +8,7 @@ import SeasonStats from '../components/SeasonStats'
 import TagsManager from '../components/TagsManager'
 import ContractTracker from '../components/ContractTracker'
 import ImportInstat from '../components/ImportInstat'
+import FitAnalysis from '../components/FitAnalysis'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
 
@@ -461,9 +462,17 @@ export default function PlayerDetail() {
         </div>
       </div>
 
+      {/* InStat panel — visible sur tous les onglets */}
+      {showInstat && (
+        <ImportInstat
+          onImport={handleInstatImport}
+          onClose={() => setShowInstat(false)}
+        />
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-bg-border">
-        {[['stats','Statistiques'],['scout','Scout'],['reports',`Rapports (${reports.length})`],['seasons','Saisons'],['contract','Contrat & Agent'],['tags','Tags'],['edit','Modifier']].map(([key, label]) => (
+        {[['stats','Statistiques'],['fit','🎯 Fit Analysis'],['scout','Scout'],['reports',`Rapports (${reports.length})`],['seasons','Saisons'],['contract','Contrat & Agent'],['tags','Tags'],['edit','Modifier']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${tab === key ? 'text-orange border-orange' : 'text-txt-muted border-transparent hover:text-txt-secondary'}`}>
             {label}
@@ -521,13 +530,6 @@ export default function PlayerDetail() {
                 </div>
               )}
             </div>
-          )}
-
-          {showInstat && (
-            <ImportInstat
-              onImport={handleInstatImport}
-              onClose={() => setShowInstat(false)}
-            />
           )}
 
           <StatsPanel player={player} />
