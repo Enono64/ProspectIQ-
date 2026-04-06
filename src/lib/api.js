@@ -80,7 +80,7 @@ export const api = {
 
   // Dashboard & admin
   getDashboard:  ()            => request('GET', '/dashboard'),
-  getSchedule:   (params = {}) => request('GET', '/schedule?' + new URLSearchParams(params)),
+  getSchedule: (from, to) => request('GET', '/schedule' + (from ? '?from=' + from + (to ? '&to=' + to : '') : '')), '/schedule?' + new URLSearchParams(params)),
   syncAll:       ()            => request('POST', '/admin/sync-all'),
   getSyncLogs:   ()            => request('GET', '/admin/sync-logs'),
 }
