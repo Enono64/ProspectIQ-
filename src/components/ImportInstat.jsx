@@ -302,7 +302,13 @@ export default function ImportInstat({ onImport, onClose }) {
             )
           })}
 
-          <button onClick={() => { onImport(preview.stats, preview.file); onClose() }} className="btn-primary text-xs">
+          <button onClick={async () => {
+              try {
+                await onImport(preview.stats, preview.file)
+              } catch(e) {
+                alert('❌ ' + e.message)
+              }
+            }} className="btn-primary text-xs">
             ✅ Importer dans la fiche
           </button>
         </div>
