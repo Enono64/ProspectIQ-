@@ -34,14 +34,25 @@ export default function Players() {
         <Link to="/players/new" className="btn-primary text-xs ml-auto">+ Ajouter</Link>
       </div>
 
-      {/* Filtres */}
-      <div className="flex gap-2 flex-wrap">
-        <input
-          value={filters.search}
-          onChange={e => setFilter('search', e.target.value)}
-          className="input w-52 text-xs"
-          placeholder="Rechercher..."
-        />
+      {/* Barre de recherche + filtres */}
+      <div className="flex flex-col gap-2">
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-txt-muted text-sm">🔍</span>
+          <input
+            value={filters.search}
+            onChange={e => setFilter('search', e.target.value)}
+            className="input w-full text-sm pl-9 py-2.5"
+            placeholder="Rechercher par nom, équipe, ligue..."
+            autoFocus
+          />
+          {filters.search && (
+            <button onClick={() => setFilter('search', '')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-txt-muted hover:text-txt-primary text-lg">
+              ×
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
         <select value={filters.league} onChange={e => setFilter('league', e.target.value)} className="select w-40 text-xs">
           <option value="">Toutes les ligues</option>
           {LIGUES.map(l => <option key={l} value={l}>{l}</option>)}
@@ -54,11 +65,12 @@ export default function Players() {
           <option value="">Tous statuts</option>
           {STATUTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        {Object.values(filters).some(v => v) && (
-          <button onClick={() => setFilters({ league: '', status: '', position: '', search: '' })} className="btn-ghost text-xs">
-            Réinitialiser
-          </button>
-        )}
+          {Object.values(filters).some(v => v) && (
+            <button onClick={() => setFilters({ league: '', status: '', position: '', search: '' })} className="btn-ghost text-xs">
+              ✕ Réinitialiser
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tableau */}
