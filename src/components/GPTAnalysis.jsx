@@ -9,7 +9,9 @@ const MODES = [
   { id: 'europe',       icon: '🌍', label: 'Europe',        desc: 'Projection FIBA, fit collectif, marché' },
   { id: 'sqbb',         icon: '🏀', label: 'SQBB',          desc: 'Fit projet Saint-Quentin Basket-Ball' },
   { id: 'shortlist',    icon: '📋', label: 'Shortlist',     desc: 'Shortlist recrutement hiérarchisée' },
-  { id: 'player_finder',icon: '🔍', label: 'Player Finder', desc: 'Trouve des profils selon un besoin précis' },
+  { id: 'player_finder',   icon: '🔍', label: 'Player Finder',  desc: 'Trouve des profils selon un besoin précis' },
+  { id: 'video_plan',       icon: '🎬', label: 'Plan Vidéo',    desc: 'Grille de visionnage scout concrète' },
+  { id: 'emerging_markets', icon: '🌐', label: 'Marchés Émerg.', desc: 'Profils value Kosovo, Chypre, Roumanie...' },
 ]
 
 const MODE_COLORS = {
@@ -121,7 +123,7 @@ export default function GPTAnalysis({ player }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {MODES.map(m => (
             <button key={m.id} onClick={() => setMode(m.id)}
               className={`text-left p-2.5 rounded-lg border text-xs transition-all ${
