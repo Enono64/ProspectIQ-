@@ -4,6 +4,7 @@ import { supabase } from '../lib/api'
 const NAV = [
   { to: '/',         icon: '⊞', label: 'Dashboard' },
   { to: '/players',  icon: '◉', label: 'Joueurs' },
+  { to: '/gpt',      icon: '🤖', label: 'GPT Analysis' },
   { to: '/watchlist',icon: '★', label: 'Watchlist' },
   { to: '/schedule', icon: '◈', label: 'Calendrier' },
   { to: '/pipeline', icon: '⊟', label: 'Pipeline' },
@@ -14,10 +15,12 @@ const NAV = [
 
 export default function Layout({ user }) {
   const navigate = useNavigate()
+
   async function handleLogout() {
     await supabase.auth.signOut()
     navigate('/login')
   }
+
   const initial = user?.email?.[0]?.toUpperCase() || 'S'
 
   return (
@@ -25,7 +28,8 @@ export default function Layout({ user }) {
       <aside className="w-14 bg-bg-surface border-r border-bg-border flex flex-col items-center py-3 gap-1 flex-shrink-0">
         <div className="w-8 h-8 bg-acc rounded-lg flex items-center justify-center text-white font-bold text-sm mb-3 font-display">P</div>
         {NAV.map(({ to, icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/'} title={label}
+          <NavLink key={to} to={to} end={to === '/'}
+            title={label}
             className={({ isActive }) =>
               `w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all duration-150
                ${isActive
