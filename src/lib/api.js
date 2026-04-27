@@ -36,6 +36,7 @@ export const api = {
   updatePlayer:  (id, body)    => request('PATCH', `/players/${id}`, body),
   deletePlayer:  (id)          => request('DELETE', `/players/${id}`),
   autofill:      (name, league)=> request('POST', '/players/autofill', { name, league }),
+  gptSearch: (query, mode) => request('POST', '/gpt-search', { query, mode }),
   syncPlayer:    (id)          => request('POST', `/players/${id}/sync`),
   comparePlayers:(ids)         => request('POST', '/players/compare', { playerIds: ids }),
 
