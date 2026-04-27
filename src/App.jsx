@@ -10,6 +10,7 @@ import PlayerNew from './pages/PlayerNew'
 import TeamProfiles from './pages/TeamProfiles'
 import Pipeline from './pages/Pipeline'
 import Veille from './pages/Veille'
+import GPTAnalysis from './pages/GPTAnalysis'
 import { Watchlist, Schedule, Compare } from './pages/WatchlistScheduleCompare'
 
 function PrivateRoute({ user, children }) {
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="profiles" element={<TeamProfiles />} />
           <Route path="pipeline" element={<Pipeline />} />
           <Route path="veille" element={<Veille />} />
+          <Route path="gpt" element={<GPTAnalysis />} />
         </Route>
       </Routes>
     </BrowserRouter>
