@@ -13,42 +13,363 @@ import GPTAnalysis from '../components/GPTAnalysis'
 
 const POSTES = ['PG', 'SG', 'SF', 'PF', 'C', 'PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
 
-function EditStatBox({ label, value, onSave }) {
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(value ?? '')
-  const ref = useRef()
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-  function commit() {
-    const n = val === '' ? null : parseFloat(val)
-    if (!isNaN(n) || val === '') onSave(isNaN(n) ? null : n)
-    setEditing(false)
+// ── Skill level label + color ──
+function skillLevel(v) {
+  if (v >= 8.5) return { label: 'Excellent', color: '#00c896' }
+  if (v >= 7)   return { label: 'Good',      color: '#00b87a' }
+  if (v >= 5)   return { label: 'Average',   color: '#f5a623' }
+  if (v >= 3)   return { label: 'Fair',      color: '#e67e22' }
+  return           { label: 'Poor',      color: '#e74c3c' }
+}
+
+// ── Single skill row ──
+function SkillRow({ label, value }) {
+  const lvl = skillLevel(value || 0)
+  const pct = ((value || 0) / 10) * 100
+  return (
+    <div className="flex items-center gap-2 py-1 border-b border-bg-border last:border-0">
+      <span className="text-xs text-txt-secondary flex-1">{label}</span>
+      <span className="text-[10px] font-medium" style={{ color: lvl.color, width: 52, textAlign: 'right', flexShrink: 0 }}>{lvl.label}</span>
+      <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ width: pct + '%', height: '100%', background: lvl.color, borderRadius: 2 }} />
+      </div>
+      <span className="text-xs font-bold text-txt-primary" style={{ width: 28, textAlign: 'right', flexShrink: 0 }}>
+        {value != null ? Number(value).toFixed(1) : '—'}
+      </span>
+    </div>
+  )
+}
+
+// ── Section accordion ──
+function ScoutSection({ title, badge, badgeColor, skills, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const avg = skills.filter(s => s.value != null).reduce((a, s, _, arr) => a + s.value / arr.length, 0)
+  const lvl = skillLevel(avg)
+  const badgeColors = {
+    green:  { bg: 'rgba(0,200,150,0.15)', text: '#00c896' },
+    orange: { bg: 'rgba(245,166,35,0.15)', text: '#f5a623' },
+    red:    { bg: 'rgba(231,76,60,0.15)', text: '#e74c3c' },
   }
-  if (editing) return (
-    <div className="bg-acc/10 border border-acc/40 rounded-lg p-3 text-center">
-      <div className="text-[10px] text-acc uppercase tracking-widest mb-1">{label}</div>
-      <input ref={ref} value={val} onChange={e => setVal(e.target.value)}
-        onBlur={commit} onKeyDown={e => { if(e.key==='Enter') commit(); if(e.key==='Escape') setEditing(false) }}
-        className="w-full bg-transparent text-xl font-semibold mono text-acc text-center outline-none" />
-    </div>
-  )
+  const bc = badgeColors[badgeColor] || badgeColors.green
+
   return (
-    <div onClick={() => { setVal(value ?? ''); setEditing(true) }}
-      className="bg-bg-card border border-bg-border rounded-lg p-3 text-center cursor-pointer hover:border-acc/30 hover:bg-acc/5 transition-all group">
-      <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">{label}</div>
-      <div className="text-xl font-semibold mono text-txt-primary group-hover:text-acc transition-colors">{value != null ? Number(value).toFixed(1) : '—'}</div>
+    <div className="border border-bg-border rounded-lg overflow-hidden mb-2">
+      <div
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-bg-card transition-colors"
+        style={{ background: 'rgba(255,255,255,0.02)' }}
+      >
+        <span className="text-xs font-semibold text-txt-primary">{title}</span>
+        <div className="flex items-center gap-2">
+          {badge && (
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded" style={{ background: bc.bg, color: bc.text }}>
+              {badge}
+            </span>
+          )}
+          <span className="text-[10px] text-txt-muted">{open ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      {open && (
+        <div className="px-3 pb-1 pt-1">
+          {skills.map(s => <SkillRow key={s.label} label={s.label} value={s.value} />)}
+        </div>
+      )}
     </div>
   )
 }
 
-function StatBox({ label, value, color = '' }) {
+// ── Build scouting categories from report ──
+function buildCategories(report) {
+  if (!report) return []
+  return [
+    {
+      title: 'Interior Physical Profile',
+      badge: 'Avg (5.6/10)', badgeColor: 'orange',
+      skills: [
+        { label: 'Size for position',              value: report.size_for_position },
+        { label: 'Wingspan',                       value: report.wingspan },
+        { label: 'Functional strength',            value: report.functional_strength },
+        { label: 'Lateral mobility',               value: report.lateral_mobility },
+        { label: 'Coordination and agility',       value: report.coordination_agility },
+        { label: 'Defensive verticality',          value: report.defensive_verticality },
+        { label: 'Resistance to constant contact', value: report.resistance_contact },
+        { label: 'Durability',                     value: report.durability },
+      ]
+    },
+    {
+      title: 'Offensive Post Game',
+      badge: 'Good (6.8/10)', badgeColor: 'green',
+      skills: [
+        { label: 'Back to basket play',        value: report.back_to_basket },
+        { label: 'Post sealing & positioning', value: report.post_sealing },
+        { label: 'Roll Man in P&R',            value: report.roll_man_pnr },
+        { label: 'Finishing in traffic',       value: report.finishing_traffic },
+        { label: 'Touch near the rim',         value: report.touch_near_rim },
+        { label: 'Offensive rebounding',       value: report.offensive_rebounding },
+        { label: 'Second chance scoring',      value: report.second_chance_scoring },
+        { label: 'Short roll decision making', value: report.short_roll_decision },
+        { label: 'High post play',             value: report.high_post_play },
+        { label: 'Free Throw',                 value: report.free_throw },
+      ]
+    },
+    {
+      title: 'Modern Big Skills',
+      badge: 'Fair (4.4/10)', badgeColor: 'orange',
+      skills: [
+        { label: 'Pick & Pop',                value: report.pick_pop },
+        { label: '3-point shooting',          value: report.three_point_shooting },
+        { label: 'Hand-off play (DHO)',        value: report.hand_off_dho },
+        { label: 'High post passing',         value: report.high_post_passing },
+        { label: 'Defensive help reading',    value: report.defensive_help_reading },
+        { label: 'Closeout attack',           value: report.closeout_attack },
+        { label: 'Real floor-spacing ability',value: report.floor_spacing },
+      ]
+    },
+    {
+      title: 'Defensive Anchor',
+      badge: 'Good (6.9/10)', badgeColor: 'green',
+      skills: [
+        { label: 'Rim protection',                       value: report.rim_protection },
+        { label: 'Shot-blocking timing',                 value: report.shot_blocking_timing },
+        { label: 'Defensive rebounding',                 value: report.defensive_rebounding },
+        { label: 'Box out',                              value: report.box_out },
+        { label: 'Drop coverage',                        value: report.drop_coverage },
+        { label: 'Hedge/show defense',                   value: report.hedge_show_defense },
+        { label: 'Switching ability',                    value: report.switching_ability },
+        { label: 'Defensive communication',              value: report.defensive_communication },
+        { label: 'Impact on team defensive efficiency',  value: report.team_defensive_impact },
+        { label: 'Defense without unnecessary fouls',    value: report.defense_no_fouls },
+      ]
+    },
+    {
+      title: 'Interior Mentality',
+      badge: 'Avg (6.8/10)', badgeColor: 'orange',
+      skills: [
+        { label: 'Physical toughness',               value: report.physical_toughness },
+        { label: 'Tactical discipline',              value: report.tactical_discipline },
+        { label: 'Constancy',                        value: report.constancy },
+        { label: 'Defensive IQ',                    value: report.defensive_iq },
+        { label: 'Role within the system',           value: report.role_system },
+        { label: 'Competing under constant contact', value: report.competing_contact },
+      ]
+    },
+  ]
+}
+
+// ── Category summary bar ──
+function CatSummaryRow({ name, avg, total, pct, color }) {
   return (
-    <div className="bg-bg-card border border-bg-border rounded-lg p-3 text-center">
-      <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">{label}</div>
-      <div className={`text-xl font-semibold font-mono ${color || 'text-txt-primary'}`}>{value ?? '—'}</div>
+    <div className="flex items-center gap-2 mb-2">
+      <span className="text-[10px] text-txt-muted" style={{ width: 110, flexShrink: 0 }}>{name}</span>
+      <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ width: ((avg||0)/10*100)+'%', height: '100%', background: color, borderRadius: 3 }} />
+      </div>
+      <span className="text-[10px] font-semibold text-txt-primary" style={{ width: 32, textAlign: 'right', flexShrink: 0 }}>
+        {avg != null ? Number(avg).toFixed(1) : '—'}
+      </span>
+      <span className="text-[10px] text-txt-muted" style={{ width: 32, textAlign: 'right', flexShrink: 0 }}>
+        {pct != null ? `(${pct}%)` : ''}
+      </span>
     </div>
   )
 }
 
+// ── Player card gradient ──
+function PlayerCard({ player }) {
+  const pos = player.position || '?'
+  const rating = player.scout_grade
+
+  // gradient by position
+  const gradients = {
+    PG: 'linear-gradient(135deg,#6a11cb,#2575fc)',
+    SG: 'linear-gradient(135deg,#1a6fc4,#00c6fb)',
+    SF: 'linear-gradient(135deg,#f7971e,#ffd200)',
+    PF: 'linear-gradient(135deg,#e65c00,#f9d423)',
+    C:  'linear-gradient(135deg,#134e5e,#71b280)',
+  }
+  const basePos = pos.split('/')[0]
+  const gradient = gradients[basePos] || 'linear-gradient(135deg,#c17a00,#f5b800)'
+
+  return (
+    <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 12, background: gradient, position: 'relative' }}>
+      <div style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        {/* Photo */}
+        <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(0,0,0,0.25)', flexShrink: 0, border: '2px solid rgba(255,255,255,0.3)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+          {player.photo_url
+            ? <img src={player.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : `${player.first_name?.[0]||''}${player.last_name?.[0]||''}`
+          }
+        </div>
+
+        {/* Info */}
+        <div style={{ flex: 1 }}>
+          {/* Stars */}
+          <div style={{ display: 'flex', gap: 2, marginBottom: 4 }}>
+            {[1,2,3,4,5].map(i => (
+              <span key={i} style={{ fontSize: 11, color: i <= Math.round((rating||5)/2) ? '#fff' : 'rgba(255,255,255,0.3)' }}>★</span>
+            ))}
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+            {player.first_name} {player.last_name}
+          </div>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {player.league && <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: '#fff' }}>{player.league}</span>}
+            <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 3, background: 'rgba(0,0,0,0.4)', color: '#fff' }}>{pos}</span>
+            {player.status && <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 3, background: 'rgba(0,184,122,0.8)', color: '#fff' }}>{player.status}</span>}
+          </div>
+        </div>
+
+        {/* Rating */}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>Rating</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{rating ? Number(rating).toFixed(2) : '—'}</div>
+        </div>
+      </div>
+
+      {/* Info row */}
+      <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.15)', padding: '8px 16px', gap: 16, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Age', value: player.age ? `${player.age} ans` : '—' },
+          { label: 'Height', value: player.height_cm ? `${player.height_cm} cm` : '—' },
+          { label: 'Nationality', value: player.nationality || '—' },
+          { label: 'Hand', value: player.dominant_hand || 'R' },
+        ].map(item => (
+          <div key={item.label} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{item.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.15)', padding: '8px 16px', gap: 16, flexWrap: 'wrap' }}>
+        {[
+          { label: 'License', value: player.license || '—' },
+          { label: 'Team', value: player.team || '—' },
+          { label: 'National League', value: player.league || '—' },
+          { label: 'Weight', value: player.weight_kg ? `${player.weight_kg} kg` : '—' },
+        ].map(item => (
+          <div key={item.label} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{item.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Stats block (Statistics tab) ──
+function StatsBlock({ player }) {
+  return (
+    <div className="card p-4 mb-3">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] text-txt-muted uppercase tracking-widest">Statistics (Real GM)</span>
+        <span className="text-[10px] text-acc font-medium">Current season {player.season || '2024-25'}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-0 border border-bg-border rounded-lg overflow-hidden mb-3">
+        {[
+          { label: 'Min/Game', value: player.min },
+          { label: 'Points',   value: player.pts },
+          { label: 'Rebounds', value: player.reb },
+        ].map((s, i, arr) => (
+          <div key={s.label} className={`p-3 text-center ${i < arr.length-1 ? 'border-r border-bg-border' : ''}`}>
+            <div className="text-[10px] text-txt-muted mb-1">{s.label}</div>
+            <div className="text-xl font-semibold text-txt-primary">{s.value != null ? Number(s.value).toFixed(1) : '—'}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-0 border border-bg-border rounded-lg overflow-hidden mb-3">
+        {[
+          { label: 'Assists', value: player.ast },
+          { label: 'Steals',  value: player.stl },
+          { label: 'Blocks',  value: player.blk },
+        ].map((s, i, arr) => (
+          <div key={s.label} className={`p-3 text-center ${i < arr.length-1 ? 'border-r border-bg-border' : ''}`}>
+            <div className="text-[10px] text-txt-muted mb-1">{s.label}</div>
+            <div className="text-lg font-semibold text-txt-primary">{s.value != null ? Number(s.value).toFixed(1) : '—'}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-0 border border-bg-border rounded-lg overflow-hidden">
+        {[
+          { label: 'FG %',  value: player.fg_pct  != null ? Number(player.fg_pct).toFixed(1)+'%'  : '—' },
+          { label: 'FT %',  value: player.ft_pct  != null ? Number(player.ft_pct).toFixed(1)+'%'  : '—' },
+        ].map((s, i, arr) => (
+          <div key={s.label} className={`p-3 text-center ${i < arr.length-1 ? 'border-r border-bg-border' : ''}`}>
+            <div className="text-[10px] text-txt-muted mb-1">{s.label}</div>
+            <div className="text-lg font-semibold text-txt-primary">{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Scouting report right panel ──
+function ScoutingReportPanel({ player, report }) {
+  const categories = buildCategories(report)
+  const catColors = ['#00c896','#f5a623','#e67e22','#00b87a','#f5a623']
+
+  const catSummary = categories.map((cat, i) => {
+    const vals = cat.skills.filter(s => s.value != null)
+    const avg  = vals.length ? vals.reduce((a,s) => a+s.value, 0)/vals.length : null
+    return { name: cat.title.split(' ').slice(0,2).join(' '), avg, color: catColors[i] }
+  })
+  const overallAvg = catSummary.filter(c => c.avg != null).reduce((a,c,_,arr) => a+c.avg/arr.length, 0)
+
+  const hasReport = report && categories.some(cat => cat.skills.some(s => s.value != null))
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ background: '#1e2433', borderRadius: '8px 8px 0 0', padding: '10px 14px', marginBottom: 2 }}>
+        <div className="text-xs font-semibold text-white">
+          Bigs ({player.position || 'PF/C'}) — Scouting Report
+        </div>
+      </div>
+
+      {!hasReport ? (
+        <div className="card p-6 text-center rounded-t-none">
+          <div className="text-txt-muted text-sm mb-2">Aucun rapport de scouting</div>
+          <div className="text-xs text-txt-muted">Génère un rapport IA ou remplis les données manuellement</div>
+        </div>
+      ) : (
+        <>
+          {categories.map((cat, i) => (
+            <ScoutSection
+              key={cat.title}
+              title={cat.title}
+              badge={cat.badge}
+              badgeColor={cat.badgeColor}
+              skills={cat.skills}
+              defaultOpen={i === 0}
+            />
+          ))}
+
+          {/* Category Summary */}
+          <div style={{ background: '#1e2433', borderRadius: 8, padding: 14, marginTop: 8 }}>
+            <div className="text-xs font-semibold text-white mb-3">Category Summary</div>
+            {catSummary.map((cat, i) => (
+              <CatSummaryRow
+                key={cat.name}
+                name={cat.name}
+                avg={cat.avg}
+                pct={cat.avg != null ? Math.round(cat.avg/10*100) : null}
+                color={cat.color}
+              />
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <span className="text-xs font-medium text-txt-muted">Overall Rating</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#00b87a' }}>{overallAvg.toFixed(1)} / 10</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Report form (unchanged) ──
 function ReportForm({ playerId, onSaved, onCancel }) {
   const [form, setForm] = useState({
     global_grade: 5, strengths: '', weaknesses: '', observation: '',
@@ -154,15 +475,15 @@ async function exportPDF(player) {
 export default function PlayerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [player, setPlayer]         = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [syncing, setSyncing]       = useState(false)
-  const [aiLoading, setAiLoading]   = useState(false)
-  const [tab, setTab]               = useState('stats')
-  const [saving, setSaving]         = useState(false)
+  const [player, setPlayer]               = useState(null)
+  const [loading, setLoading]             = useState(true)
+  const [syncing, setSyncing]             = useState(false)
+  const [aiLoading, setAiLoading]         = useState(false)
+  const [tab, setTab]                     = useState('stats')
+  const [saving, setSaving]               = useState(false)
   const [showReportForm, setShowReportForm] = useState(false)
-  const [showInstat, setShowInstat] = useState(false)
-  const [form, setForm]             = useState({})
+  const [showInstat, setShowInstat]       = useState(false)
+  const [form, setForm]                   = useState({})
 
   useEffect(() => { load() }, [id])
 
@@ -212,15 +533,7 @@ export default function PlayerDetail() {
     await load()
   }
 
-  async function handleBarttorvik() {
-    try {
-      const res = await api.syncBarttorvik(id)
-      if (res.ok) { await load(); alert('✅ Barttorvik sync réussi') }
-      else alert('❌ ' + res.error)
-    } catch (e) { alert('❌ ' + e.message) }
-  }
-
-  async function handleInstatImport(stats, file) {
+  async function handleInstatImport(stats) {
     try {
       await api.updatePlayer(id, stats)
       await load()
@@ -234,26 +547,16 @@ export default function PlayerDetail() {
   if (loading) return <div className="p-10 text-txt-muted text-sm animate-pulse text-center">Chargement...</div>
   if (!player)  return <div className="p-10 text-red text-sm text-center">Joueur introuvable</div>
 
-  const reports = player.reports || []
-  const pos = player.position || ''
+  const reports   = player.reports || []
+  const latestReport = reports[0] || null
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
-      {/* Header fixe */}
+      {/* ── Header ── */}
       <div className="flex-shrink-0 bg-bg-surface border-b border-bg-border px-5 py-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <button onClick={() => navigate(-1)} className="btn-ghost text-xs mt-1">← Retour</button>
-
-          <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-card border border-bg-border flex-shrink-0">
-            {player.photo_url
-              ? <img src={player.photo_url} alt="" className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-txt-muted font-bold text-sm">
-                  {player.first_name?.[0]}{player.last_name?.[0]}
-                </div>
-            }
-          </div>
-
+          <button onClick={() => navigate(-1)} className="btn-ghost text-xs">← Retour</button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-sm font-bold text-txt-primary">{player.first_name} {player.last_name}</h1>
@@ -268,7 +571,6 @@ export default function PlayerDetail() {
               <span className={`text-sm font-bold ${gradeColor(player.scout_grade)}`}>{player.scout_grade}/10</span>
             </div>
           </div>
-
           <div className="flex gap-1.5 flex-wrap justify-end">
             <button onClick={() => exportPDF(player)} className="btn-ghost text-xs py-1">📄 PDF</button>
             <button onClick={() => setShowInstat(!showInstat)} className="btn-ghost text-xs py-1">📊 InStat</button>
@@ -278,14 +580,9 @@ export default function PlayerDetail() {
           </div>
         </div>
 
-        {/* InStat panel */}
         {showInstat && (
           <div className="mt-3">
-            <ImportInstat
-              playerId={id}
-              onImport={handleInstatImport}
-              onClose={() => setShowInstat(false)}
-            />
+            <ImportInstat playerId={id} onImport={handleInstatImport} onClose={() => setShowInstat(false)} />
           </div>
         )}
 
@@ -306,123 +603,103 @@ export default function PlayerDetail() {
         </div>
       </div>
 
-      {/* Contenu scrollable */}
+      {/* ── Contenu ── */}
       <div className="flex-1 overflow-y-auto p-4">
 
-        {/* ── Tab Stats ── */}
+        {/* ── Tab Stats — layout El Radar del Scout ── */}
         {tab === 'stats' && (
-          <StatsPanel player={player} onUpdate={async (updates) => {
-            await api.updatePlayer(id, updates)
-            await load()
-          }} />
-        )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* LEFT */}
+            <div>
+              <PlayerCard player={player} />
+              <StatsBlock player={player} />
 
-        {/* ── Tab Fit Analysis ── */}
-        {tab === 'fit' && <FitAnalysis player={player} />}
+              {/* Scout's notes */}
+              {(player.observation || player.strengths || player.weaknesses) && (
+                <div className="card p-4 mb-3">
+                  <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-3">Scout's notes</div>
+                  {player.strengths && (
+                    <div className="mb-2">
+                      <div className="text-[10px] text-teal uppercase tracking-widest mb-1">Offense</div>
+                      <p className="text-xs text-txt-secondary leading-relaxed">{player.strengths}</p>
+                    </div>
+                  )}
+                  {player.weaknesses && (
+                    <div className="mb-2">
+                      <div className="text-[10px] text-red uppercase tracking-widest mb-1">Defense</div>
+                      <p className="text-xs text-txt-secondary leading-relaxed">{player.weaknesses}</p>
+                    </div>
+                  )}
+                  {player.observation && (
+                    <p className="text-xs text-txt-secondary leading-relaxed mt-2">{player.observation}</p>
+                  )}
+                </div>
+              )}
 
-        {/* ── Tab GPT Analysis ── */}
-        {tab === 'gpt' && <GPTAnalysis player={player} />}
+              {/* Radar chart */}
+              <div className="card p-4">
+                <RadarChart player={player} />
+              </div>
+            </div>
 
-        {/* ── Tab Scout ── */}
-        {tab === 'scout' && (
-          <div className="flex flex-col gap-4">
-            {player.comparable && (
-              <div className="card p-4">
-                <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">Comparable</div>
-                <div className="text-sm text-acc font-medium">{player.comparable}</div>
-              </div>
-            )}
-            {player.ceiling && (
-              <div className="card p-4">
-                <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">Plafond estimé</div>
-                <div className="text-sm text-txt-primary">{player.ceiling}</div>
-              </div>
-            )}
-            {player.strengths && (
-              <div className="card p-4 border-teal/20 bg-teal/5">
-                <div className="text-[10px] text-teal uppercase tracking-widest mb-2">Forces</div>
-                <p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.strengths}</p>
-              </div>
-            )}
-            {player.weaknesses && (
-              <div className="card p-4 border-red/20 bg-red/5">
-                <div className="text-[10px] text-red uppercase tracking-widest mb-2">Faiblesses</div>
-                <p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.weaknesses}</p>
-              </div>
-            )}
-            {player.observation && (
-              <div className="card p-4">
-                <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-2">Observation terrain</div>
-                <p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.observation}</p>
-              </div>
-            )}
-            {!player.strengths && !player.weaknesses && !player.observation && (
-              <div className="card p-10 text-center text-txt-muted text-sm">Aucune note — <button onClick={() => setTab('edit')} className="text-acc hover:underline">ajouter</button></div>
-            )}
+            {/* RIGHT — Scouting Report */}
+            <div>
+              <ScoutingReportPanel player={player} report={latestReport} />
+            </div>
           </div>
         )}
 
-        {/* ── Tab Rapports ── */}
+        {tab === 'fit' && <FitAnalysis player={player} />}
+        {tab === 'gpt' && <GPTAnalysis player={player} />}
+
+        {tab === 'scout' && (
+          <div className="flex flex-col gap-4">
+            {player.comparable && <div className="card p-4"><div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">Comparable</div><div className="text-sm text-acc font-medium">{player.comparable}</div></div>}
+            {player.ceiling && <div className="card p-4"><div className="text-[10px] text-txt-muted uppercase tracking-widest mb-1">Plafond estimé</div><div className="text-sm text-txt-primary">{player.ceiling}</div></div>}
+            {player.strengths && <div className="card p-4 border-teal/20 bg-teal/5"><div className="text-[10px] text-teal uppercase tracking-widest mb-2">Forces</div><p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.strengths}</p></div>}
+            {player.weaknesses && <div className="card p-4 border-red/20 bg-red/5"><div className="text-[10px] text-red uppercase tracking-widest mb-2">Faiblesses</div><p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.weaknesses}</p></div>}
+            {player.observation && <div className="card p-4"><div className="text-[10px] text-txt-muted uppercase tracking-widest mb-2">Observation terrain</div><p className="text-sm text-txt-secondary whitespace-pre-wrap leading-relaxed">{player.observation}</p></div>}
+            {!player.strengths && !player.weaknesses && !player.observation && <div className="card p-10 text-center text-txt-muted text-sm">Aucune note — <button onClick={() => setTab('edit')} className="text-acc hover:underline">ajouter</button></div>}
+          </div>
+        )}
+
         {tab === 'reports' && (
           <div className="flex flex-col gap-3">
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowReportForm(!showReportForm)} className="btn-ghost text-xs">
-                {showReportForm ? '✕ Annuler' : '📋 Rapport manuel'}
-              </button>
-              <button onClick={handleAIReport} disabled={aiLoading} className="btn-primary text-xs">
-                {aiLoading ? '🤖 Génération...' : '🤖 Rapport IA'}
-              </button>
+              <button onClick={() => setShowReportForm(!showReportForm)} className="btn-ghost text-xs">{showReportForm ? '✕ Annuler' : '📋 Rapport manuel'}</button>
+              <button onClick={handleAIReport} disabled={aiLoading} className="btn-primary text-xs">{aiLoading ? '🤖 Génération...' : '🤖 Rapport IA'}</button>
             </div>
-
-            {showReportForm && (
-              <ReportForm
-                playerId={id}
-                onSaved={() => { setShowReportForm(false); load() }}
-                onCancel={() => setShowReportForm(false)}
-              />
-            )}
-
-            {reports.length === 0 && !showReportForm ? (
-              <div className="card p-10 text-center text-txt-muted text-sm">Aucun rapport — génère un rapport IA ou rédige-en un manuellement</div>
-            ) : reports.map(r => (
-              <div key={r.id} className={`card p-4 ${r.source === 'IA' ? 'border-purple/20 bg-purple/5' : 'border-teal/20 bg-teal/5'}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] uppercase tracking-widest font-medium ${r.source === 'IA' ? 'text-purple' : 'text-teal'}`}>
-                      {r.source === 'IA' ? '🤖 Rapport IA' : '📋 Rapport manuel'}
-                    </span>
-                    <span className="text-xs text-txt-muted">{fmtDate(r.report_date)}</span>
-                    {r.global_grade && <span className={`font-bold text-sm ${gradeColor(r.global_grade)}`}>{r.global_grade}/10</span>}
+            {showReportForm && <ReportForm playerId={id} onSaved={() => { setShowReportForm(false); load() }} onCancel={() => setShowReportForm(false)} />}
+            {reports.length === 0 && !showReportForm
+              ? <div className="card p-10 text-center text-txt-muted text-sm">Aucun rapport</div>
+              : reports.map(r => (
+                <div key={r.id} className={`card p-4 ${r.source === 'IA' ? 'border-purple/20 bg-purple/5' : 'border-teal/20 bg-teal/5'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] uppercase tracking-widest font-medium ${r.source === 'IA' ? 'text-purple' : 'text-teal'}`}>{r.source === 'IA' ? '🤖 Rapport IA' : '📋 Rapport manuel'}</span>
+                      <span className="text-xs text-txt-muted">{fmtDate(r.report_date)}</span>
+                      {r.global_grade && <span className={`font-bold text-sm ${gradeColor(r.global_grade)}`}>{r.global_grade}/10</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => exportPDF(player)} className="text-txt-muted hover:text-acc text-xs">📄 PDF</button>
+                      <button onClick={() => handleDeleteReport(r.id)} className="text-txt-muted hover:text-red text-xs">Supprimer</button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => exportPDF(player)} className="text-txt-muted hover:text-acc text-xs">📄 PDF</button>
-                    <button onClick={() => handleDeleteReport(r.id)} className="text-txt-muted hover:text-red text-xs">Supprimer</button>
-                  </div>
+                  {r.strengths && <div className="mb-2"><div className="text-[10px] text-teal uppercase tracking-widest mb-1">Forces</div><p className="text-xs text-txt-secondary">{r.strengths}</p></div>}
+                  {r.weaknesses && <div className="mb-2"><div className="text-[10px] text-red uppercase tracking-widest mb-1">Faiblesses</div><p className="text-xs text-txt-secondary">{r.weaknesses}</p></div>}
+                  {(r.ai_report || r.observation) && <div className="mt-2 pt-2 border-t border-bg-border"><p className="text-xs text-txt-secondary whitespace-pre-wrap leading-relaxed">{r.ai_report || r.observation}</p></div>}
+                  {r.recommendation && <div className="mt-2 pt-2 border-t border-bg-border"><span className="text-xs font-medium text-acc">{r.recommendation}</span></div>}
+                  {r.video_url && <a href={r.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple hover:underline mt-2 block">🎬 Highlights ↗</a>}
                 </div>
-                {r.strengths && <div className="mb-2"><div className="text-[10px] text-teal uppercase tracking-widest mb-1">Forces</div><p className="text-xs text-txt-secondary">{r.strengths}</p></div>}
-                {r.weaknesses && <div className="mb-2"><div className="text-[10px] text-red uppercase tracking-widest mb-1">Faiblesses</div><p className="text-xs text-txt-secondary">{r.weaknesses}</p></div>}
-                {(r.ai_report || r.observation) && (
-                  <div className="mt-2 pt-2 border-t border-bg-border">
-                    <p className="text-xs text-txt-secondary whitespace-pre-wrap leading-relaxed">{r.ai_report || r.observation}</p>
-                  </div>
-                )}
-                {r.recommendation && <div className="mt-2 pt-2 border-t border-bg-border"><span className="text-xs font-medium text-acc">{r.recommendation}</span></div>}
-                {r.video_url && <a href={r.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple hover:underline mt-2 block">🎬 Highlights ↗</a>}
-              </div>
-            ))}
+              ))
+            }
           </div>
         )}
 
-        {/* ── Tab Saisons ── */}
-        {tab === 'seasons' && <SeasonStats playerId={id} />}
-
-        {/* ── Tab Contrat ── */}
+        {tab === 'seasons'  && <SeasonStats playerId={id} />}
         {tab === 'contract' && <ContractTracker player={player} onUpdate={p => { setPlayer(p); setForm(p) }} />}
+        {tab === 'tags'     && <TagsManager player={player} onUpdate={p => { setPlayer(p); setForm(p) }} />}
 
-        {/* ── Tab Tags ── */}
-        {tab === 'tags' && <TagsManager player={player} onUpdate={p => { setPlayer(p); setForm(p) }} />}
-
-        {/* ── Tab Modifier ── */}
         {tab === 'edit' && (
           <div className="flex flex-col gap-4">
             <div className="card p-4">
@@ -441,7 +718,6 @@ export default function PlayerDetail() {
                 </div>
               </div>
             </div>
-
             <div className="card p-4">
               <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-3">Équipe & statut</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -464,7 +740,6 @@ export default function PlayerDetail() {
                 <div><label className="label">BPM</label><input type="number" step="0.1" value={form.bpm ?? ''} onChange={e => set('bpm', e.target.value ? parseFloat(e.target.value) : null)} className="input text-xs" /></div>
               </div>
             </div>
-
             <div className="card p-4">
               <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-3">Notes scout</div>
               <div className="grid grid-cols-1 gap-3">
@@ -474,7 +749,6 @@ export default function PlayerDetail() {
                 ))}
               </div>
             </div>
-
             <div className="card p-4">
               <div className="text-[10px] text-txt-muted uppercase tracking-widest mb-3">Liens & médias</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -483,14 +757,12 @@ export default function PlayerDetail() {
                 ))}
               </div>
             </div>
-
             <div className="flex gap-2">
               <button onClick={handleSave} disabled={saving} className="btn-primary text-xs">{saving ? 'Sauvegarde...' : '💾 Sauvegarder'}</button>
               <button onClick={() => { setTab('stats'); setForm(player) }} className="btn-ghost text-xs">Annuler</button>
             </div>
           </div>
         )}
-
       </div>
     </div>
   )
